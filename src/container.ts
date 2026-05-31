@@ -2,10 +2,9 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { FocusConfig } from './config/resolver.ts';
 import * as docker from './runtime/docker.ts';
 import { getHostUid } from './uid.ts';
-
-const IMAGE = 'ubuntu:24.04';
 
 function loadEntrypointScript(): string {
   const path = join(dirname(fileURLToPath(import.meta.url)), 'entrypoint.sh');
@@ -17,14 +16,15 @@ export function containerName(cwd: string): string {
   return `focus-${hash}`;
 }
 
-export async function runContainer(cwd: string, command?: string[]): Promise<number> {
+export async function runContainer(cwd: string, config: FocusConfig, command?: string[]): Promise<number> {
   return docker.start({
     name: containerName(cwd),
-    image: IMAGE,
+    image: config.image,
     cwd,
     uid: getHostUid(),
     entrypointScript: loadEntrypointScript(),
     command,
+    network: config.network === 'none' ? 'none' : undefined,
   });
 }
 

@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { realpathSync } from 'node:fs';
+import { focusInit } from './commands/init.ts';
+import { resolveConfig } from './config/resolver.ts';
 import { runContainer, stopContainer, containerStatus } from './container.ts';
 
 const args = process.argv.slice(2);
@@ -9,13 +11,19 @@ const cwd = realpathSync(process.cwd());
 async function main(): Promise<void> {
   const subcommand = args[0];
 
+  if (subcommand === 'init') {
+    await focusInit(cwd);
+    return;
+  }
+
   if (subcommand === '--') {
     const command = args.slice(1);
     if (command.length === 0) {
       console.error('focus: no command given after --');
       process.exit(1);
     }
-    const code = await runContainer(cwd, command);
+    const config = await resolveConfig(cwd);
+    const code = await runContainer(cwd, config, command);
     process.exit(code);
   }
 
@@ -34,12 +42,13 @@ async function main(): Promise<void> {
   }
 
   if (subcommand === undefined || subcommand === 'run') {
-    const code = await runContainer(cwd);
+    const config = await resolveConfig(cwd);
+    const code = await runContainer(cwd, config);
     process.exit(code);
   }
 
   console.error(`focus: unknown subcommand '${subcommand}'`);
-  console.error('Usage: focus [run|stop|status] [-- <cmd> [args...]]');
+  console.error('Usage: focus [run|stop|status|init] [-- <cmd> [args...]]');
   process.exit(1);
 }
 

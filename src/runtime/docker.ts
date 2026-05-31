@@ -13,12 +13,14 @@ export interface StartOptions {
   uid: number;
   entrypointScript: string;
   command?: string[];
+  network?: 'none';
 }
 
 export async function start(opts: StartOptions): Promise<number> {
-  const { name, image, cwd, uid, entrypointScript, command } = opts;
+  const { name, image, cwd, uid, entrypointScript, command, network } = opts;
   const interactive = command === undefined;
   const ttyFlags = interactive && process.stdin.isTTY ? ['-it'] : ['-i'];
+  const networkFlags = network === 'none' ? ['--network', 'none'] : [];
 
   // Pass the entrypoint script inline via `bash -c` so no host-path mounting is needed.
   // `bash -c SCRIPT argv0 [args...]` sets $0=argv0, $@=args.
@@ -27,6 +29,7 @@ export async function start(opts: StartOptions): Promise<number> {
     '--rm',
     '--name', name,
     ...ttyFlags,
+    ...networkFlags,
     '-v', `${cwd}:/focus`,
     '-e', `FOCUS_UID=${uid}`,
     image,
