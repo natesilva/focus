@@ -177,7 +177,9 @@ focus uses a minimal, well-maintained base image (e.g. Debian slim or Ubuntu LTS
 
 ---
 
-## Platform Notes
+## Supported Platforms
+
+The supported platforms are **macOS** and **Linux** (including WSL2). Native Windows (Win32) is not a target. No Windows-specific code paths, compatibility shims, or workarounds should be introduced.
 
 ### macOS
 
@@ -208,3 +210,4 @@ focus follows the [XDG Base Directory Specification](https://specifications.free
 - Network service orchestration (focus is not docker-compose)
 - Container image publication or registry integration
 - GUI or TUI (CLI only)
+- Native Windows (Win32) support
