@@ -29,15 +29,24 @@ async function main(): Promise<void> {
 
   if (subcommand === 'stop') {
     const { stopped } = await stopContainer(cwd);
-    if (!stopped) {
+    if (stopped) {
+      console.log('container stopped');
+    } else {
       console.log('no container running for this directory');
     }
     return;
   }
 
   if (subcommand === 'status') {
-    const { running } = await containerStatus(cwd);
-    console.log(running ? 'running' : 'not running');
+    const config = await resolveConfig(cwd);
+    const { running, configCurrent } = await containerStatus(cwd, config);
+    if (!running) {
+      console.log('not running');
+    } else if (configCurrent) {
+      console.log('running (config current)');
+    } else {
+      console.log('running (config changed — run `focus` to rebuild)');
+    }
     return;
   }
 
