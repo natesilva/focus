@@ -1,6 +1,7 @@
 import type { ExecFileException } from 'node:child_process';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
+import type { MountDescriptor } from '../volumes.ts';
 
 const execFileAsync = promisify(execFile);
 
@@ -14,13 +15,21 @@ export interface StartOptions {
   entrypointScript: string;
   command?: string[];
   network?: 'none';
+  mounts?: MountDescriptor[];
+}
+
+export function buildVolumeFlags(mounts: MountDescriptor[]): string[] {
+  return mounts.flatMap(m =>
+    ['-v', `${m.hostPath}:${m.containerPath}${m.readOnly ? ':ro' : ''}`]
+  );
 }
 
 export async function start(opts: StartOptions): Promise<number> {
-  const { name, image, cwd, uid, entrypointScript, command, network } = opts;
+  const { name, image, cwd, uid, entrypointScript, command, network, mounts } = opts;
   const interactive = command === undefined;
   const ttyFlags = interactive && process.stdin.isTTY ? ['-it'] : ['-i'];
   const networkFlags = network === 'none' ? ['--network', 'none'] : [];
+  const volumeFlags = buildVolumeFlags(mounts ?? []);
 
   // Pass the entrypoint script inline via `bash -c` so no host-path mounting is needed.
   // `bash -c SCRIPT argv0 [args...]` sets $0=argv0, $@=args.
@@ -31,6 +40,7 @@ export async function start(opts: StartOptions): Promise<number> {
     ...ttyFlags,
     ...networkFlags,
     '-v', `${cwd}:/focus`,
+    ...volumeFlags,
     '-e', `FOCUS_UID=${uid}`,
     image,
     '/bin/bash', '-c', entrypointScript, 'focus-entrypoint',

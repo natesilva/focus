@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import type { FocusConfig } from './config/resolver.ts';
 import * as docker from './runtime/docker.ts';
 import { getHostUid } from './uid.ts';
+import { resolveVolumeMounts } from './volumes.ts';
+import { xdgPaths } from './config/xdg.ts';
 
 function loadEntrypointScript(): string {
   const path = join(dirname(fileURLToPath(import.meta.url)), 'entrypoint.sh');
@@ -17,14 +19,17 @@ export function containerName(cwd: string): string {
 }
 
 export async function runContainer(cwd: string, config: FocusConfig, command?: string[]): Promise<number> {
+  const uid = getHostUid();
+  const mounts = await resolveVolumeMounts(xdgPaths(), uid);
   return docker.start({
     name: containerName(cwd),
     image: config.image,
     cwd,
-    uid: getHostUid(),
+    uid,
     entrypointScript: loadEntrypointScript(),
     command,
     network: config.network === 'none' ? 'none' : undefined,
+    mounts,
   });
 }
 
