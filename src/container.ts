@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { FocusConfig } from './config/resolver.ts';
+import { buildImage } from './image-builder.ts';
 import * as docker from './runtime/docker.ts';
 import { getHostUid } from './uid.ts';
 import { resolveVolumeMounts } from './volumes.ts';
@@ -20,10 +21,14 @@ export function containerName(cwd: string): string {
 
 export async function runContainer(cwd: string, config: FocusConfig, command?: string[]): Promise<number> {
   const uid = getHostUid();
-  const mounts = await resolveVolumeMounts(xdgPaths(), uid);
+  const xdg = xdgPaths();
+  const [mounts, image] = await Promise.all([
+    resolveVolumeMounts(xdg, uid),
+    buildImage(config.tools, config.image, xdg.focusConfigDir),
+  ]);
   return docker.start({
     name: containerName(cwd),
-    image: config.image,
+    image,
     cwd,
     uid,
     entrypointScript: loadEntrypointScript(),
