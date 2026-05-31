@@ -35,6 +35,28 @@ A container's name SHALL be deterministically derived from the absolute path of 
 - **WHEN** `focus` is invoked in two different directories
 - **THEN** the computed container names differ
 
+### Requirement: Container image is config-driven
+The container image SHALL be taken from `FocusConfig.image` rather than a hard-coded constant.
+
+#### Scenario: Default image
+- **WHEN** no image is specified in global or project config
+- **THEN** the container is launched using `ubuntu:24.04`
+
+#### Scenario: Custom image from project config
+- **WHEN** `.focus.yaml` specifies `image: debian:bookworm-slim`
+- **THEN** the container is launched using `debian:bookworm-slim`
+
+### Requirement: Network mode is config-driven
+The container network mode SHALL be taken from `FocusConfig.network`.
+
+#### Scenario: Default network (bridge)
+- **WHEN** no network is specified in config
+- **THEN** the container is launched with the default bridge network (no explicit `--network` flag)
+
+#### Scenario: Air-gapped network
+- **WHEN** `FocusConfig.network` is `"none"`
+- **THEN** the container is launched with `--network none`
+
 ### Requirement: Exit code propagation
 When `focus -- <cmd>` is used, the exit code of the container process SHALL be propagated as the exit code of the `focus` process.
 
