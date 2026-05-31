@@ -35,16 +35,24 @@ A container's name SHALL be deterministically derived from the absolute path of 
 - **WHEN** `focus` is invoked in two different directories
 - **THEN** the computed container names differ
 
-### Requirement: Container image is config-driven
-The container image SHALL be taken from `FocusConfig.image` rather than a hard-coded constant.
+### Requirement: Container image is determined by the image builder
+The container image used at launch SHALL be the tag returned by the image builder, given `FocusConfig.tools` and `FocusConfig.image` as inputs. When `FocusConfig.tools` is empty, the image builder returns `FocusConfig.image` unchanged and no Docker build is performed.
 
-#### Scenario: Default image
-- **WHEN** no image is specified in global or project config
-- **THEN** the container is launched using `ubuntu:24.04`
+#### Scenario: Default image when no tools configured
+- **WHEN** no tools are specified in global or project config
+- **THEN** the container is launched using `ubuntu:24.04` (the default base image, returned by the builder unchanged)
 
-#### Scenario: Custom image from project config
-- **WHEN** `.focus.yaml` specifies `image: debian:bookworm-slim`
-- **THEN** the container is launched using `debian:bookworm-slim`
+#### Scenario: Built image used when tools configured
+- **WHEN** `.focus.yaml` specifies `tools: [git, ripgrep]`
+- **THEN** the image builder is invoked with those profiles and the container is launched using the returned `focus-built:<hash>` tag
+
+#### Scenario: Custom image from project config with no tools
+- **WHEN** `.focus.yaml` specifies `image: debian:bookworm-slim` and no `tools`
+- **THEN** the container is launched using `debian:bookworm-slim` (returned by the builder unchanged)
+
+#### Scenario: Custom base image combined with tools
+- **WHEN** `.focus.yaml` specifies both `image: debian:bookworm-slim` and `tools: [ripgrep]`
+- **THEN** the image builder uses `debian:bookworm-slim` as the base and the container is launched using the resulting `focus-built:<hash>` tag
 
 ### Requirement: Network mode is config-driven
 The container network mode SHALL be taken from `FocusConfig.network`.
