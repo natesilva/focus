@@ -1,6 +1,5 @@
-import { writeFile } from 'node:fs/promises';
+import { access, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { access } from 'node:fs/promises';
 
 const SCAFFOLD = `# focus project configuration
 # All fields are optional. Absent fields inherit from ~/.config/focus/config.yaml or built-in defaults.
