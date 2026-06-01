@@ -7,7 +7,7 @@ Defines the built-in catalog of named tool profiles and the mechanism for resolv
 ## Requirements
 
 ### Requirement: Predefined profile catalog
-The system SHALL define a built-in catalog of named tool profiles. Each profile SHALL declare an ordered list of shell install commands and an optional list of volume slot names it requires.
+The system SHALL define a built-in catalog of named tool profiles. Each profile SHALL declare an ordered list of shell install commands and an optional list of XDG volume directory names it requires. Volume names in `profile.volumes` are used verbatim by the volume manager and are now load-bearing: the volume manager uses them to determine which XDG-backed directories to create and mount. A profile with an empty `volumes` list produces no directory mounts.
 
 #### Scenario: Catalog contains expected predefined profiles
 - **WHEN** the built-in profile catalog is queried
@@ -17,13 +17,21 @@ The system SHALL define a built-in catalog of named tool profiles. Each profile 
 - **WHEN** the `ripgrep` profile is looked up
 - **THEN** it returns a non-empty list of shell commands that install ripgrep
 
-#### Scenario: Profile with volume slot
+#### Scenario: Profile with volume declaration
 - **WHEN** the `claude-code` profile is looked up
-- **THEN** it declares `claude` in its volumes list
+- **THEN** it declares `.claude` in its volumes list
 
-#### Scenario: Profile with no volume slot
+#### Scenario: Profile with no volume declaration
 - **WHEN** the `ripgrep` profile is looked up
 - **THEN** its volumes list is empty
+
+#### Scenario: claude-code volume declaration drives a directory mount
+- **WHEN** a container is launched with the `claude-code` profile active
+- **THEN** the volume manager creates and mounts `<focusVolumesDir>/claude-code/.claude` into the container at `/home/focususer/.claude`
+
+#### Scenario: ssh volume declaration drives a directory mount
+- **WHEN** a container is launched with the `ssh` profile active
+- **THEN** the volume manager creates and mounts `<focusVolumesDir>/ssh/.ssh` into the container at `/home/focususer/.ssh`
 
 ### Requirement: Profile lookup by name
 The system SHALL resolve a profile name to its definition, merging the custom profile directory (searched first) with the built-in catalog (fallback).
@@ -56,8 +64,8 @@ The system SHALL load user-defined profiles from YAML files at `<focusConfigDir>
 - **THEN** the system throws an error identifying the file and the validation failure
 
 #### Scenario: Custom profile with volume slots
-- **WHEN** a custom profile YAML file declares `volumes: [ssh]`
-- **THEN** the loaded profile's volumes list contains `ssh`
+- **WHEN** a custom profile YAML file declares `volumes: [.ssh]`
+- **THEN** the loaded profile's volumes list contains `.ssh`
 
 ### Requirement: Profile schema
 A profile definition SHALL conform to a schema with the following fields:
@@ -65,7 +73,7 @@ A profile definition SHALL conform to a schema with the following fields:
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `install` | `string[]` | yes | Ordered shell commands for the `RUN` layer |
-| `volumes` | `string[]` | no (default `{}`) | Volume slot names this profile requires |
+| `volumes` | `string[]` | no (default `{}`) | XDG volume directory names this profile requires |
 | `files` | `Record<string, FileInit \| null>` | no (default `{}`) | Container file paths to persist, with optional init content |
 
 Where `FileInit` is `{ json: unknown }` or `{ text: string }`.

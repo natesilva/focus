@@ -2,27 +2,35 @@
 
 ## Purpose
 
-Defines the catalog of named persistent volume slots and the behavior for resolving, creating, and returning mount descriptors that are passed to the container runtime at launch.
+Defines the behavior for resolving, creating, and returning mount descriptors driven by profile-declared volumes that are passed to the container runtime at launch.
 
 ## Requirements
 
-### Requirement: Predefined volume slot catalog
-The system SHALL define a fixed catalog of named volume slots: `claude` (mounts `~/.claude`), `ssh` (mounts `~/.ssh`), and `git` (mounts `~/.gitconfig` read-only). Individual tool config files are NOT added to this catalog; they are declared in tool profiles via the `files` field.
+### Requirement: Profile-declared volumes drive XDG directory mounts
+The volume manager SHALL accept the resolved list of active profiles and, for each unique volume name declared across all `profile.volumes` arrays, create a corresponding XDG-backed host directory (if absent) and emit a `MountDescriptor` mapping it into the container. The host path is namespaced by the declaring profile's name (`<focusVolumesDir>/<profileName>/<volumeName>`); the container path uses the volume name verbatim (`<CONTAINER_HOME>/<volumeName>`). When the same volume name is declared by multiple profiles the first profile's namespace is used for the host path.
 
-#### Scenario: Catalog includes claude slot
-- **WHEN** the volume slot catalog is queried
-- **THEN** a slot named `claude` exists with host path `<focusVolumesDir>/claude` and container path `~/.claude`
+#### Scenario: Single profile declares a volume
+- **WHEN** one active profile named `claude-code` declares `volumes: [".claude"]`
+- **THEN** the resolved mount list includes a read-write descriptor with `hostPath: <focusVolumesDir>/claude-code/.claude` and `containerPath: /home/focususer/.claude`
 
-#### Scenario: Catalog includes ssh slot
-- **WHEN** the volume slot catalog is queried
-- **THEN** a slot named `ssh` exists with host path `<focusVolumesDir>/ssh` and container path `~/.ssh`
+#### Scenario: Multiple profiles declare volumes
+- **WHEN** active profiles declare `volumes: [".claude"]` and `volumes: [".ssh"]` respectively
+- **THEN** the resolved mount list includes descriptors for both `.claude` and `.ssh` volumes
 
-#### Scenario: Catalog includes git slot
-- **WHEN** the volume slot catalog is queried
-- **THEN** a slot named `git` exists with host source path `~/.gitconfig` and container path `/etc/gitconfig`, mounted read-only
+#### Scenario: Volume declared by no active profile is not mounted
+- **WHEN** no active profile declares `volumes: [".claude"]`
+- **THEN** the resolved mount list does not include a mount for `containerPath: /home/focususer/.claude`
+
+#### Scenario: Duplicate volume declaration across profiles is deduplicated
+- **WHEN** two active profiles both declare `volumes: [".claude"]`
+- **THEN** the resolved mount list includes exactly one descriptor for the `.claude` volume
+
+#### Scenario: No volumes declared produces empty list
+- **WHEN** all active profiles have empty `volumes` arrays
+- **THEN** `resolveProfileVolumes` returns an empty list
 
 ### Requirement: Volume directories created on first use
-The volume manager SHALL create the host directory for each directory-backed slot if it does not already exist, before the container is launched.
+The volume manager SHALL create the host directory for each profile-declared volume if it does not already exist, before the container is launched.
 
 #### Scenario: First launch creates volume directory
 - **WHEN** a container is launched and the host volume directory does not exist
@@ -46,27 +54,12 @@ The `ssh` volume directory SHALL be created with mode `0700` to satisfy SSH clie
 - **WHEN** the `ssh` volume directory is created
 - **THEN** its Unix permission bits are `0700`
 
-### Requirement: Missing git config file is skipped
-If `~/.gitconfig` does not exist on the host, the `git` slot SHALL be omitted from the mount list rather than causing an error.
-
-#### Scenario: git slot skipped when file absent
-- **WHEN** `~/.gitconfig` does not exist on the host
-- **THEN** the resolved mount list does not include the git slot
-
-#### Scenario: git slot included when file present
-- **WHEN** `~/.gitconfig` exists on the host
-- **THEN** the resolved mount list includes the git slot as a read-only bind-mount
-
 ### Requirement: Volume manager returns resolved mount descriptors
-The volume manager SHALL return a list of mount descriptors (host path, container path, read-only flag) that the runtime adapter can pass directly to the container launch invocation.
+The volume manager SHALL accept the list of active profiles and return a list of mount descriptors (host path, container path, read-only flag) that the runtime adapter can pass directly to the container launch invocation.
 
-#### Scenario: Mount descriptor shape for directory slot
-- **WHEN** the volume manager resolves mounts for the `claude` slot
-- **THEN** the descriptor includes `hostPath`, `containerPath`, and `readOnly: false`
-
-#### Scenario: Mount descriptor shape for file slot
-- **WHEN** the volume manager resolves mounts for the `git` slot (file present)
-- **THEN** the descriptor includes `hostPath` pointing to `~/.gitconfig`, `containerPath: /etc/gitconfig`, and `readOnly: true`
+#### Scenario: Mount descriptor shape for profile-declared volume
+- **WHEN** the volume manager resolves mounts for a profile named `claude-code` declaring `volumes: [".claude"]`
+- **THEN** the descriptor includes `hostPath: <focusVolumesDir>/claude-code/.claude`, `containerPath: /home/focususer/.claude`, and `readOnly: false`
 
 ### Requirement: Volumes reachable when the container home differs from the canonical home
 Persistent volumes are mounted at canonical paths under `/home/focususer`. When the host UID maps to a pre-existing user in the base image whose home directory differs from `/home/focususer` (e.g. `ubuntu:24.04` ships a user `ubuntu` at UID 1000 with home `/home/ubuntu`), the container entrypoint SHALL make each mounted volume reachable at the running user's actual home by symlinking the volume dotdirs from `/home/focususer` into that home. An existing entry at the target path SHALL NOT be overwritten.
