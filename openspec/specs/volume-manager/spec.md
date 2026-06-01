@@ -84,11 +84,19 @@ Persistent volumes are mounted at canonical paths under `/home/focususer`. When 
 - **THEN** the entrypoint does not overwrite it with a symlink
 
 ### Requirement: Profile-level file mounts
-The system SHALL allow any profile (built-in or custom) to declare a list of container file paths to persist via a `files` field. Each declared path SHALL be bind-mounted from a host file whose location is derived automatically as `<focusVolumesDir>/<profile-name>/<filename>`. If the host file does not exist it SHALL be created empty and chowned to the host UID before the container starts.
+The system SHALL allow any profile (built-in or custom) to declare a map of container file paths to persist via a `files` field. Keys are `~/`-prefixed container paths; values are `null` (create empty) or a `FileInit` object (`{ json: unknown }` or `{ text: string }`). Each declared path SHALL be bind-mounted from a host file whose location is derived automatically as `<focusVolumesDir>/<profile-name>/<filename>`. If the host file does not exist it SHALL be created with the declared init content (or empty if `null`) and chowned to the host UID before the container starts.
 
-#### Scenario: Host file created on first use
-- **WHEN** a profile declares a file path and the derived host file does not exist
-- **THEN** the host file is created empty and its owner UID equals the host user's UID
+#### Scenario: Host file created empty when init is null
+- **WHEN** a profile declares a file path with `null` init and the derived host file does not exist
+- **THEN** the host file is created as an empty file and its owner UID equals the host user's UID
+
+#### Scenario: Host file created with JSON content
+- **WHEN** a profile declares a file path with `{ json: {} }` init and the derived host file does not exist
+- **THEN** the host file is created containing `{}` (the serialized JSON) and its owner UID equals the host user's UID
+
+#### Scenario: Host file created with text content
+- **WHEN** a profile declares a file path with `{ text: "hello" }` init and the derived host file does not exist
+- **THEN** the host file is created containing `hello` and its owner UID equals the host user's UID
 
 #### Scenario: Existing host file used as-is
 - **WHEN** a profile declares a file path and the derived host file already exists
