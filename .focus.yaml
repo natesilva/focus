@@ -1,0 +1,6 @@
+tools:
+  - claude-code
+  - node
+  - ripgrep
+  - git
+  - openspec
