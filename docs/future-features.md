@@ -116,3 +116,19 @@ The word "scope" is better than "sharing level" for this concept.
 **Context:** `container run` accepts `--cpus` and `--memory` flags that set per-VM CPU and memory limits. Docker supports these too, but they're not currently surfaced in `.focus.yaml`.
 
 **Suggested approach when revisiting:** Add optional `resources.cpus` and `resources.memory` fields to the project config schema and pass them through `StartOptions` to both adapters.
+
+---
+
+## `focus images` — list focus-built images
+
+**Context:** There is currently no way to see which container images `focus` has built on the host. Users have to inspect raw Docker/Apple Containers image lists and mentally filter for images tagged with the `focus-built` label, which is tedious and error-prone.
+
+**Suggested approach when revisiting:** Add a `focus images` (or `focus image ls`) subcommand that queries the active runtime for all images carrying the `focus-built` label and prints them in a human-readable table (columns: image ID, project path, tool set, size, created). Both adapters already have access to the runtime client needed to issue this query. A `--json` flag for machine-readable output would be useful for scripting.
+
+---
+
+## `focus prune` — remove stale focus-built images
+
+**Context:** Every time the tool set or base image changes, `focus` builds a new image and leaves the old one behind. Over time this accumulates significant disk space with no automated cleanup.
+
+**Suggested approach when revisiting:** Add a `focus prune` subcommand that removes `focus-built` images that are no longer referenced by a running or stopped container. Optionally accept `--older-than <duration>` and `--project <path>` filters to narrow the scope. Print a dry-run summary by default and require `--confirm` (or `-y`) to actually delete, matching the UX of `docker image prune`. The implementation should go through the runtime adapter interface so it works with both Docker and Apple Containers backends.
