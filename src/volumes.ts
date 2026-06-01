@@ -1,7 +1,8 @@
-import { chown, mkdir, stat } from 'node:fs/promises';
+import { chown, mkdir, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import type { XdgPaths } from './config/xdg.ts';
+import type { Profile } from './profiles/types.ts';
 
 export interface MountDescriptor {
   hostPath: string;
@@ -91,6 +92,43 @@ export async function resolveVolumeMounts(
     }
 
     mounts.push({ hostPath, containerPath: slot.containerPath, readOnly: slot.readOnly });
+  }
+
+  return mounts;
+}
+
+export async function resolveFileMounts(
+  profiles: Profile[],
+  xdg: XdgPaths,
+  hostUid: number,
+): Promise<MountDescriptor[]> {
+  const mounts: MountDescriptor[] = [];
+
+  for (const profile of profiles) {
+    for (const filePath of profile.files) {
+      if (!filePath.startsWith('~/')) {
+        throw new Error(
+          `Profile "${profile.name}" declares an invalid file path "${filePath}": paths must start with ~/`,
+        );
+      }
+
+      const containerPath = CONTAINER_HOME + filePath.slice(1);
+      const hostDir = join(xdg.focusVolumesDir, profile.name);
+      const hostPath = join(hostDir, basename(filePath));
+
+      const hostDirExists = await pathExists(hostDir);
+      await mkdir(hostDir, { recursive: true });
+      if (!hostDirExists) {
+        await chown(hostDir, hostUid, -1);
+      }
+
+      if (!await pathExists(hostPath)) {
+        await writeFile(hostPath, '');
+        await chown(hostPath, hostUid, -1);
+      }
+
+      mounts.push({ hostPath, containerPath, readOnly: false });
+    }
   }
 
   return mounts;

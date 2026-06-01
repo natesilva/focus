@@ -7,8 +7,9 @@ import assert from 'node:assert/strict';
 // We test resolveVolumeMounts by passing a custom XdgPaths with a temp dir.
 // The function under test creates real directories; we clean up afterward.
 
-import { resolveVolumeMounts } from './volumes.ts';
+import { resolveFileMounts, resolveVolumeMounts } from './volumes.ts';
 import type { XdgPaths } from './config/xdg.ts';
+import type { Profile } from './profiles/types.ts';
 
 function makeXdg(base: string): XdgPaths {
   const dataHome = join(base, 'data');
@@ -98,5 +99,105 @@ describe('resolveVolumeMounts', () => {
 
     const sshMount = mounts.find(m => m.containerPath.endsWith('/.ssh'));
     assert.equal(sshMount?.readOnly, false, 'ssh mount should not be read-only');
+  });
+});
+
+function makeProfile(name: string, files: string[]): Profile {
+  return { name, install: [], volumes: [], files };
+}
+
+describe('resolveFileMounts', () => {
+  let tmpBase: string;
+
+  before(async () => {
+    tmpBase = join(tmpdir(), `focus-filemounts-test-${Date.now()}`);
+    await mkdir(tmpBase, { recursive: true });
+  });
+
+  after(async () => {
+    await rm(tmpBase, { recursive: true, force: true });
+  });
+
+  it('returns empty array for profiles with no files', async () => {
+    const xdg = makeXdg(join(tmpBase, 'no-files'));
+    const mounts = await resolveFileMounts([makeProfile('my-tool', [])], xdg, process.getuid?.() ?? 1000);
+    assert.deepEqual(mounts, []);
+  });
+
+  it('creates host file when missing', async () => {
+    const xdg = makeXdg(join(tmpBase, 'creates-file'));
+    const mounts = await resolveFileMounts([makeProfile('my-tool', ['~/.my-tool.json'])], xdg, process.getuid?.() ?? 1000);
+    assert.equal(mounts.length, 1);
+    const s = await stat(mounts[0].hostPath);
+    assert.ok(s.isFile(), 'host path should be a file');
+  });
+
+  it('creates host file with empty content', async () => {
+    const xdg = makeXdg(join(tmpBase, 'empty-content'));
+    const { readFile } = await import('node:fs/promises');
+    const mounts = await resolveFileMounts([makeProfile('my-tool', ['~/.my-tool.json'])], xdg, process.getuid?.() ?? 1000);
+    const content = await readFile(mounts[0].hostPath, 'utf8');
+    assert.equal(content, '');
+  });
+
+  it('chowns created file to host UID', async () => {
+    const xdg = makeXdg(join(tmpBase, 'chown'));
+    const uid = process.getuid?.() ?? 1000;
+    const mounts = await resolveFileMounts([makeProfile('my-tool', ['~/.my-tool.json'])], xdg, uid);
+    const s = await stat(mounts[0].hostPath);
+    assert.equal(s.uid, uid);
+  });
+
+  it('uses existing file as-is', async () => {
+    const xdg = makeXdg(join(tmpBase, 'existing'));
+    const hostDir = join(xdg.focusVolumesDir, 'my-tool');
+    await mkdir(hostDir, { recursive: true });
+    const existingPath = join(hostDir, '.my-tool.json');
+    await writeFile(existingPath, '{"existing":true}');
+    const mounts = await resolveFileMounts([makeProfile('my-tool', ['~/.my-tool.json'])], xdg, process.getuid?.() ?? 1000);
+    assert.equal(mounts.length, 1);
+    const { readFile } = await import('node:fs/promises');
+    const content = await readFile(mounts[0].hostPath, 'utf8');
+    assert.equal(content, '{"existing":true}');
+  });
+
+  it('derives host path namespaced by profile name', async () => {
+    const xdg = makeXdg(join(tmpBase, 'namespaced'));
+    const mounts = await resolveFileMounts([makeProfile('my-tool', ['~/.my-tool.json'])], xdg, process.getuid?.() ?? 1000);
+    assert.ok(mounts[0].hostPath.includes('my-tool'), 'host path should include profile name');
+    assert.ok(mounts[0].hostPath.endsWith('.my-tool.json'), 'host path should end with filename');
+  });
+
+  it('expands ~/ to container home in container path', async () => {
+    const xdg = makeXdg(join(tmpBase, 'tilde'));
+    const mounts = await resolveFileMounts([makeProfile('my-tool', ['~/.my-tool.json'])], xdg, process.getuid?.() ?? 1000);
+    assert.equal(mounts[0].containerPath, '/home/focususer/.my-tool.json');
+  });
+
+  it('mounts as read-write', async () => {
+    const xdg = makeXdg(join(tmpBase, 'readwrite'));
+    const mounts = await resolveFileMounts([makeProfile('my-tool', ['~/.my-tool.json'])], xdg, process.getuid?.() ?? 1000);
+    assert.equal(mounts[0].readOnly, false);
+  });
+
+  it('throws on absolute paths', async () => {
+    const xdg = makeXdg(join(tmpBase, 'absolute'));
+    await assert.rejects(
+      () => resolveFileMounts([makeProfile('my-tool', ['/etc/my-tool.conf'])], xdg, process.getuid?.() ?? 1000),
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.ok(err.message.includes('/etc/my-tool.conf'));
+        return true;
+      },
+    );
+  });
+
+  it('collects file mounts from multiple profiles', async () => {
+    const xdg = makeXdg(join(tmpBase, 'multi'));
+    const mounts = await resolveFileMounts([
+      makeProfile('tool-a', ['~/.tool-a.json']),
+      makeProfile('tool-b', ['~/.tool-b.json']),
+    ], xdg, process.getuid?.() ?? 1000);
+    assert.equal(mounts.length, 2);
   });
 });

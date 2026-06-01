@@ -9,6 +9,7 @@ export const BUILTIN_PROFILES: readonly Profile[] = [
       "rm -rf /var/lib/apt/lists/*",
     ],
     volumes: [],
+    files: [],
   },
   {
     name: "ripgrep",
@@ -18,6 +19,7 @@ export const BUILTIN_PROFILES: readonly Profile[] = [
       "rm -rf /var/lib/apt/lists/*",
     ],
     volumes: [],
+    files: [],
   },
   {
     name: "ssh",
@@ -27,6 +29,7 @@ export const BUILTIN_PROFILES: readonly Profile[] = [
       "rm -rf /var/lib/apt/lists/*",
     ],
     volumes: ["ssh"],
+    files: [],
   },
   {
     name: "node",
@@ -39,6 +42,7 @@ export const BUILTIN_PROFILES: readonly Profile[] = [
       "rm -rf /var/lib/apt/lists/*",
     ],
     volumes: [],
+    files: [],
   },
   {
     name: "python",
@@ -49,6 +53,7 @@ export const BUILTIN_PROFILES: readonly Profile[] = [
       "rm -rf /var/lib/apt/lists/*",
     ],
     volumes: [],
+    files: [],
   },
   {
     name: "rust",
@@ -58,6 +63,7 @@ export const BUILTIN_PROFILES: readonly Profile[] = [
       "rm -rf /var/lib/apt/lists/*",
     ],
     volumes: [],
+    files: [],
   },
   {
     name: "claude-code",
@@ -73,6 +79,7 @@ export const BUILTIN_PROFILES: readonly Profile[] = [
       "rm -rf /var/lib/apt/lists/*",
     ],
     volumes: ["claude"],
+    files: ["~/.claude.json"],
   },
 ];
 

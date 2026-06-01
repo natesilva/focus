@@ -1,6 +1,10 @@
-import { describe, it } from 'node:test';
+import { mkdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { configHash, containerName, resolveRunAction } from './container.ts';
+import { buildMounts, configHash, containerName, resolveRunAction } from './container.ts';
+import type { XdgPaths } from './config/xdg.ts';
 import type { FocusConfig } from './config/resolver.ts';
 import type { InspectResult } from './runtime/adapter.ts';
 
@@ -90,5 +94,53 @@ describe('configHash', () => {
     const a = configHash({ ...base, runtime: 'docker', network: 'bridge' });
     const b = configHash({ ...base, runtime: 'apple-containers', network: 'none' });
     assert.equal(a, b);
+  });
+});
+
+describe('buildMounts', () => {
+  let tmpBase: string;
+
+  before(async () => {
+    tmpBase = join(tmpdir(), `focus-buildmounts-test-${Date.now()}`);
+    await mkdir(tmpBase, { recursive: true });
+  });
+
+  after(async () => {
+    await rm(tmpBase, { recursive: true, force: true });
+  });
+
+  function makeXdg(base: string): XdgPaths {
+    const dataHome = join(base, 'data');
+    return {
+      configHome: join(base, 'config'),
+      dataHome,
+      cacheHome: join(base, 'cache'),
+      stateHome: join(base, 'state'),
+      focusConfigDir: join(base, 'config', 'focus'),
+      focusVolumesDir: join(dataHome, 'focus', 'volumes'),
+      focusCacheDir: join(base, 'cache', 'focus'),
+      focusStateDir: join(base, 'state', 'focus'),
+    };
+  }
+
+  it('includes volume mounts and file mounts from active profiles', async () => {
+    const xdg = makeXdg(join(tmpBase, 'wiring'));
+    const uid = process.getuid?.() ?? 1000;
+    const mounts = await buildMounts(['claude-code'], xdg, uid);
+
+    const claudeDir = mounts.find(m => m.containerPath.endsWith('/.claude'));
+    assert.ok(claudeDir, 'claude volume mount should be present');
+
+    const claudeJson = mounts.find(m => m.containerPath.endsWith('/.claude.json'));
+    assert.ok(claudeJson, 'claude.json file mount should be present via resolveFileMounts');
+    assert.equal(claudeJson?.readOnly, false);
+  });
+
+  it('profiles with no files add no file mounts beyond volume mounts', async () => {
+    const xdg = makeXdg(join(tmpBase, 'no-files'));
+    const uid = process.getuid?.() ?? 1000;
+    const mounts = await buildMounts(['git'], xdg, uid);
+    const fileMounts = mounts.filter(m => m.containerPath.endsWith('.json'));
+    assert.equal(fileMounts.length, 0);
   });
 });

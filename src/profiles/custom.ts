@@ -7,6 +7,7 @@ import type { Profile } from './types.ts';
 const CustomProfileSchema = z.object({
   install: z.array(z.string()),
   volumes: z.array(z.string()).default([]),
+  files: z.array(z.string()).default([]),
 }).strict();
 
 export async function loadCustomProfiles(configDir: string): Promise<Map<string, Profile>> {
@@ -34,7 +35,7 @@ export async function loadCustomProfiles(configDir: string): Promise<Map<string,
     } catch (err) {
       throw new Error(`Invalid custom profile at ${filePath}: ${String(err)}`);
     }
-    profiles.set(name, { name, install: data.install, volumes: data.volumes });
+    profiles.set(name, { name, install: data.install, volumes: data.volumes, files: data.files });
   }
   return profiles;
 }

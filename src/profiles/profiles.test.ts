@@ -31,6 +31,11 @@ describe('built-in profile catalog', () => {
     assert.ok(profile?.volumes.includes('claude'), 'claude-code should require the claude volume');
   });
 
+  it('claude-code declares ~/.claude.json in files', () => {
+    const profile = getBuiltinProfile('claude-code');
+    assert.ok(profile?.files.includes('~/.claude.json'), 'claude-code should persist ~/.claude.json');
+  });
+
   it('ssh declares the ssh volume', () => {
     const profile = getBuiltinProfile('ssh');
     assert.ok(profile?.volumes.includes('ssh'), 'ssh profile should require the ssh volume');
@@ -66,6 +71,7 @@ describe('loadCustomProfiles', () => {
     assert.ok(profile, 'mytools profile should be loaded');
     assert.deepEqual(profile.install, ['apt-get install -y jq']);
     assert.deepEqual(profile.volumes, []);
+    assert.deepEqual(profile.files, []);
   });
 
   it('defaults volumes to empty array when omitted', async () => {
@@ -77,6 +83,28 @@ describe('loadCustomProfiles', () => {
     );
     const map = await loadCustomProfiles(configDir);
     assert.deepEqual(map.get('novolumes')?.volumes, []);
+  });
+
+  it('defaults files to empty array when omitted', async () => {
+    const configDir = join(tmpBase, 'default-files');
+    await mkdir(join(configDir, 'profiles'), { recursive: true });
+    await writeFile(
+      join(configDir, 'profiles', 'nofiles.yaml'),
+      'install:\n  - echo hi\n',
+    );
+    const map = await loadCustomProfiles(configDir);
+    assert.deepEqual(map.get('nofiles')?.files, []);
+  });
+
+  it('loads files when specified', async () => {
+    const configDir = join(tmpBase, 'with-files');
+    await mkdir(join(configDir, 'profiles'), { recursive: true });
+    await writeFile(
+      join(configDir, 'profiles', 'withfiles.yaml'),
+      'install:\n  - echo hi\nfiles:\n  - ~/.my-tool.json\n',
+    );
+    const map = await loadCustomProfiles(configDir);
+    assert.deepEqual(map.get('withfiles')?.files, ['~/.my-tool.json']);
   });
 
   it('loads volumes when specified', async () => {

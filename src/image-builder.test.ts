@@ -35,9 +35,9 @@ describe('computeTag', () => {
 });
 
 describe('generateDockerfile', () => {
-  const git: Profile = { name: 'git', install: ['apt-get install -y git'], volumes: [] };
-  const ripgrep: Profile = { name: 'ripgrep', install: ['apt-get install -y ripgrep'], volumes: [] };
-  const multi: Profile = { name: 'node', install: ['apt-get install -y curl', 'npm install -g pnpm'], volumes: [] };
+  const git: Profile = { name: 'git', install: ['apt-get install -y git'], volumes: [], files: [] };
+  const ripgrep: Profile = { name: 'ripgrep', install: ['apt-get install -y ripgrep'], volumes: [], files: [] };
+  const multi: Profile = { name: 'node', install: ['apt-get install -y curl', 'npm install -g pnpm'], volumes: [], files: [] };
 
   it('starts with FROM line', () => {
     const df = generateDockerfile([git], 'ubuntu:24.04');
