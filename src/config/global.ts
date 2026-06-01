@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 import { xdgPaths } from './xdg.ts';
+import { FocusError } from '../errors.ts';
 
 const RuntimeSchema = z.enum(['auto', 'docker', 'apple-containers']);
 
@@ -27,5 +28,9 @@ export async function loadGlobalConfig(): Promise<GlobalConfig> {
   }
 
   const parsed: unknown = parseYaml(raw);
-  return GlobalConfigSchema.parse(parsed ?? {});
+  try {
+    return GlobalConfigSchema.parse(parsed ?? {});
+  } catch (err) {
+    throw new FocusError(`Invalid global config at ${path}: ${err instanceof z.ZodError ? err.message : String(err)}`);
+  }
 }

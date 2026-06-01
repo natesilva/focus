@@ -3,6 +3,7 @@ import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { MountDescriptor } from '../volumes.ts';
 import type { RuntimeAdapter, StartOptions, InspectResult } from './adapter.ts';
+import { FocusError } from '../errors.ts';
 
 export type { StartOptions, InspectResult } from './adapter.ts';
 
@@ -14,10 +15,15 @@ export function buildVolumeFlags(mounts: MountDescriptor[]): string[] {
   );
 }
 
-export function buildExecArgs(name: string, uid: number, command: string[] | undefined, tty: boolean): string[] {
+export function buildEnvFlags(env: Record<string, string> | undefined): string[] {
+  if (!env) return [];
+  return Object.entries(env).flatMap(([k, v]) => ['-e', `${k}=${v}`]);
+}
+
+export function buildExecArgs(name: string, uid: number, command: string[] | undefined, tty: boolean, env?: Record<string, string>): string[] {
   const cmd = command ?? ['/bin/bash'];
   const ttyFlags = tty ? ['-it'] : ['-i'];
-  return ['exec', '--user', String(uid), '--workdir', '/focus', ...ttyFlags, name, ...cmd];
+  return ['exec', '--user', String(uid), '--workdir', '/focus', ...ttyFlags, ...buildEnvFlags(env), name, ...cmd];
 }
 
 export function parseInspectOutput(json: string): InspectResult {
@@ -42,7 +48,7 @@ export function parseContainerList(names: string[], inspectJson: string): Array<
 }
 
 export async function start(opts: StartOptions): Promise<number> {
-  const { name, image, cwd, uid, configHash, entrypointScript, command, network, mounts } = opts;
+  const { name, image, cwd, uid, configHash, entrypointScript, command, network, mounts, env } = opts;
   const interactive = command === undefined;
   const ttyFlags = interactive && process.stdin.isTTY ? ['-it'] : ['-i'];
   const networkFlags = network === 'none' ? ['--network', 'none'] : [];
@@ -61,21 +67,36 @@ export async function start(opts: StartOptions): Promise<number> {
     '-v', `${cwd}:/focus`,
     ...volumeFlags,
     '-e', `FOCUS_UID=${uid}`,
+    ...buildEnvFlags(env),
     image,
     '/bin/bash', '-c', entrypointScript, 'focus-entrypoint',
     ...(command ?? []),
   ];
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const child = spawn('docker', args, { stdio: 'inherit' });
+    child.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'ENOENT') {
+        reject(new FocusError('docker not found. Install Docker Desktop, OrbStack, or another Docker-compatible runtime, or set runtime: apple-containers in your config.'));
+      } else {
+        reject(err);
+      }
+    });
     child.on('close', (code: number | null) => resolve(code ?? 1));
   });
 }
 
-export async function exec(name: string, uid: number, command: string[] | undefined, tty: boolean): Promise<number> {
-  const args = buildExecArgs(name, uid, command, tty);
-  return new Promise((resolve) => {
+export async function exec(name: string, uid: number, command: string[] | undefined, tty: boolean, env?: Record<string, string>): Promise<number> {
+  const args = buildExecArgs(name, uid, command, tty, env);
+  return new Promise((resolve, reject) => {
     const child = spawn('docker', args, { stdio: 'inherit' });
+    child.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'ENOENT') {
+        reject(new FocusError('docker not found. Install Docker Desktop, OrbStack, or another Docker-compatible runtime, or set runtime: apple-containers in your config.'));
+      } else {
+        reject(err);
+      }
+    });
     child.on('close', (code: number | null) => resolve(code ?? 1));
   });
 }
@@ -120,7 +141,7 @@ export async function stop(name: string): Promise<{ stopped: boolean }> {
 
 export class DockerRuntimeAdapter implements RuntimeAdapter {
   start(opts: StartOptions): Promise<number> { return start(opts); }
-  exec(name: string, uid: number, command: string[] | undefined, tty: boolean): Promise<number> { return exec(name, uid, command, tty); }
+  exec(name: string, uid: number, command: string[] | undefined, tty: boolean, env?: Record<string, string>): Promise<number> { return exec(name, uid, command, tty, env); }
   inspect(name: string): Promise<InspectResult> { return inspect(name); }
   stop(name: string): Promise<{ stopped: boolean }> { return stop(name); }
   listFocusContainers(): Promise<Array<{ name: string; cwd: string }>> { return listFocusContainers(); }
@@ -150,7 +171,13 @@ export class DockerRuntimeAdapter implements RuntimeAdapter {
         if (code === 0) resolve();
         else reject(new Error(`docker build failed with exit code ${code ?? 'null'}`));
       });
-      child.on('error', reject);
+      child.on('error', (err: NodeJS.ErrnoException) => {
+        if (err.code === 'ENOENT') {
+          reject(new FocusError('docker not found. Install Docker Desktop, OrbStack, or another Docker-compatible runtime, or set runtime: apple-containers in your config.'));
+        } else {
+          reject(err);
+        }
+      });
     });
   }
 }

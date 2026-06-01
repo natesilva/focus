@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { Profile } from './profiles/index.ts';
 import { resolveProfiles } from './profiles/index.ts';
 import type { RuntimeAdapter } from './runtime/adapter.ts';
+import { FocusError } from './errors.ts';
 
 export function computeTag(profileNames: string[], baseImage: string): string {
   const sorted = [...profileNames].sort();
@@ -33,6 +34,11 @@ export async function buildImage(profileNames: string[], baseImage: string, conf
 
   const profiles = await resolveProfiles(sorted, configDir);
   const dockerfile = generateDockerfile(profiles, baseImage);
-  await adapter.buildImage(tag, dockerfile);
+  try {
+    await adapter.buildImage(tag, dockerfile);
+  } catch (err) {
+    if (err instanceof FocusError) throw err;
+    throw new FocusError(`Image build failed for tools [${sorted.join(', ')}]. Check your network connection or profile definitions.\n  ${err instanceof Error ? err.message : String(err)}`);
+  }
   return tag;
 }

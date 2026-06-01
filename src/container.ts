@@ -65,9 +65,11 @@ async function promptRebuild(): Promise<boolean> {
   });
 }
 
+const TERMINAL_ENV = { TERM: 'xterm-256color', COLORTERM: 'truecolor' };
+
 export async function attachContainer(adapter: RuntimeAdapter, name: string, uid: number, command?: string[]): Promise<number> {
   const tty = command === undefined && process.stdin.isTTY;
-  return adapter.exec(name, uid, command, tty);
+  return adapter.exec(name, uid, command, tty, TERMINAL_ENV);
 }
 
 export async function runContainer(cwd: string, config: FocusConfig, command?: string[]): Promise<number> {
@@ -112,6 +114,7 @@ export async function runContainer(cwd: string, config: FocusConfig, command?: s
     command,
     network: config.network === 'none' ? 'none' : undefined,
     mounts,
+    env: TERMINAL_ENV,
   });
 }
 

@@ -1,14 +1,26 @@
 #!/usr/bin/env node
 
+import { createRequire } from 'node:module';
 import { realpathSync } from 'node:fs';
 import { focusInit } from './commands/init.ts';
 import { resolveConfig } from './config/resolver.ts';
 import { runContainer, stopContainer, containerStatus } from './container.ts';
+import { FocusError } from './errors.ts';
+
+const require = createRequire(import.meta.url);
+const { version } = require('../package.json') as { version: string };
 
 const args = process.argv.slice(2);
 const cwd = realpathSync(process.cwd());
 
 async function main(): Promise<void> {
+  const doubleDash = args.indexOf('--');
+  const prePassthrough = doubleDash === -1 ? args : args.slice(0, doubleDash);
+  if (prePassthrough.includes('--version')) {
+    console.log(`focus/${version}`);
+    process.exit(0);
+  }
+
   const subcommand = args[0];
 
   if (subcommand === 'init') {
@@ -63,6 +75,10 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error('focus:', err instanceof Error ? err.message : String(err));
+  if (err instanceof FocusError) {
+    process.stderr.write(`focus: ${err.message}\n`);
+  } else {
+    console.error(err);
+  }
   process.exit(1);
 });

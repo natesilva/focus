@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildVolumeFlags } from './docker.ts';
+import { buildVolumeFlags, buildEnvFlags } from './docker.ts';
 
 describe('docker volume flag generation', () => {
   it('appends :ro for read-only mounts', () => {
@@ -30,5 +30,22 @@ describe('docker volume flag generation', () => {
   it('returns empty array for no mounts', () => {
     const flags = buildVolumeFlags([]);
     assert.deepEqual(flags, []);
+  });
+});
+
+describe('buildEnvFlags', () => {
+  it('produces -e KEY=VALUE pairs', () => {
+    const flags = buildEnvFlags({ TERM: 'xterm-256color', COLORTERM: 'truecolor' });
+    assert.ok(flags.includes('-e'));
+    assert.ok(flags.includes('TERM=xterm-256color'));
+    assert.ok(flags.includes('COLORTERM=truecolor'));
+  });
+
+  it('returns empty array for undefined', () => {
+    assert.deepEqual(buildEnvFlags(undefined), []);
+  });
+
+  it('returns empty array for empty object', () => {
+    assert.deepEqual(buildEnvFlags({}), []);
   });
 });

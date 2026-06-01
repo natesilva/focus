@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
+import { FocusError } from '../errors.ts';
 
 const ProjectConfigSchema = z.object({
   runtime: z.enum(['auto', 'docker', 'apple-containers']).optional(),
@@ -25,5 +26,9 @@ export async function loadProjectConfig(dir: string): Promise<ProjectConfig | nu
   }
 
   const parsed: unknown = parseYaml(raw);
-  return ProjectConfigSchema.parse(parsed ?? {});
+  try {
+    return ProjectConfigSchema.parse(parsed ?? {});
+  } catch (err) {
+    throw new FocusError(`Invalid project config at ${path}: ${err instanceof z.ZodError ? err.message : String(err)}`);
+  }
 }

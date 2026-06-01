@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 import type { RuntimeAdapter, StartOptions, InspectResult } from './adapter.ts';
+import { FocusError } from '../errors.ts';
 
 const execFileAsync = promisify(execFile);
 
@@ -39,7 +40,7 @@ export function parseContainerList(json: string): Array<{ name: string; cwd: str
 
 export class AppleContainersRuntimeAdapter implements RuntimeAdapter {
   async start(opts: StartOptions): Promise<number> {
-    const { name, image, cwd, uid, configHash, entrypointScript, command, mounts } = opts;
+    const { name, image, cwd, uid, configHash, entrypointScript, command, mounts, env } = opts;
     const interactive = command === undefined;
     const ttyFlags = interactive && process.stdin.isTTY
       ? ['--interactive', '--tty']
@@ -47,6 +48,7 @@ export class AppleContainersRuntimeAdapter implements RuntimeAdapter {
     const volumeFlags = (mounts ?? []).flatMap(m =>
       ['-v', `${m.hostPath}:${m.containerPath}${m.readOnly ? ':ro' : ''}`]
     );
+    const envFlags = env ? Object.entries(env).flatMap(([k, v]) => ['-e', `${k}=${v}`]) : [];
 
     // Pass the entrypoint script inline via `bash -c` so no host-path mounting is needed.
     // `bash -c SCRIPT argv0 [args...]` sets $0=argv0, $@=args.
@@ -60,24 +62,40 @@ export class AppleContainersRuntimeAdapter implements RuntimeAdapter {
       '-v', `${cwd}:/focus`,
       ...volumeFlags,
       '-e', `FOCUS_UID=${uid}`,
+      ...envFlags,
       image,
       '/bin/bash', '-c', entrypointScript, 'focus-entrypoint',
       ...(command ?? []),
     ];
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const child = spawn('container', args, { stdio: 'inherit' });
+      child.on('error', (err: NodeJS.ErrnoException) => {
+        if (err.code === 'ENOENT') {
+          reject(new FocusError('Apple Containers not found. This runtime requires macOS 26 (Tahoe) or later. Set runtime: docker in your config to use a Docker-compatible runtime instead.'));
+        } else {
+          reject(err);
+        }
+      });
       child.on('close', (code: number | null) => resolve(code ?? 1));
     });
   }
 
-  async exec(name: string, uid: number, command: string[] | undefined, tty: boolean): Promise<number> {
+  async exec(name: string, uid: number, command: string[] | undefined, tty: boolean, env?: Record<string, string>): Promise<number> {
     const cmd = command ?? ['/bin/bash'];
     const ttyFlags = tty ? ['--interactive', '--tty'] : ['--interactive'];
-    const args = ['exec', ...ttyFlags, '--user', String(uid), '--workdir', '/focus', name, ...cmd];
+    const envFlags = env ? Object.entries(env).flatMap(([k, v]) => ['-e', `${k}=${v}`]) : [];
+    const args = ['exec', ...ttyFlags, '--user', String(uid), '--workdir', '/focus', ...envFlags, name, ...cmd];
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const child = spawn('container', args, { stdio: 'inherit' });
+      child.on('error', (err: NodeJS.ErrnoException) => {
+        if (err.code === 'ENOENT') {
+          reject(new FocusError('Apple Containers not found. This runtime requires macOS 26 (Tahoe) or later. Set runtime: docker in your config to use a Docker-compatible runtime instead.'));
+        } else {
+          reject(err);
+        }
+      });
       child.on('close', (code: number | null) => resolve(code ?? 1));
     });
   }
@@ -136,7 +154,13 @@ export class AppleContainersRuntimeAdapter implements RuntimeAdapter {
           if (code === 0) resolve();
           else reject(new Error(`container build failed with exit code ${code ?? 'null'}`));
         });
-        child.on('error', reject);
+        child.on('error', (err: NodeJS.ErrnoException) => {
+          if (err.code === 'ENOENT') {
+            reject(new FocusError('Apple Containers not found. This runtime requires macOS 26 (Tahoe) or later. Set runtime: docker in your config to use a Docker-compatible runtime instead.'));
+          } else {
+            reject(err);
+          }
+        });
       });
     } finally {
       rmSync(contextDir, { recursive: true, force: true });
