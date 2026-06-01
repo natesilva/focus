@@ -28,7 +28,8 @@ async function main(): Promise<void> {
   }
 
   if (subcommand === 'stop') {
-    const { stopped } = await stopContainer(cwd);
+    const config = await resolveConfig(cwd);
+    const { stopped } = await stopContainer(cwd, config);
     if (stopped) {
       console.log('container stopped');
     } else {

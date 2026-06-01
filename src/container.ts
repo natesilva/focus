@@ -6,8 +6,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { FocusConfig } from './config/resolver.ts';
 import { buildImage } from './image-builder.ts';
-import type { InspectResult } from './runtime/docker.ts';
-import * as docker from './runtime/docker.ts';
+import type { InspectResult, RuntimeAdapter } from './runtime/adapter.ts';
+import { selectRuntime } from './runtime/index.ts';
 import { getHostUid } from './uid.ts';
 import { resolveVolumeMounts } from './volumes.ts';
 import { xdgPaths } from './config/xdg.ts';
@@ -41,14 +41,14 @@ export function resolveRunAction(inspect: InspectResult, currentHash: string, in
   return interactive ? { type: 'rebuild-interactive' } : { type: 'rebuild-auto' };
 }
 
-async function pruneOrphanedContainers(): Promise<void> {
-  const containers = await docker.listFocusContainers();
+async function pruneOrphanedContainers(adapter: RuntimeAdapter): Promise<void> {
+  const containers = await adapter.listFocusContainers();
   await Promise.all(
     containers.map(async ({ name, cwd }) => {
       try {
         await access(cwd);
       } catch {
-        await docker.stop(name);
+        await adapter.stop(name);
       }
     })
   );
@@ -65,9 +65,9 @@ async function promptRebuild(): Promise<boolean> {
   });
 }
 
-export async function attachContainer(name: string, uid: number, command?: string[]): Promise<number> {
+export async function attachContainer(adapter: RuntimeAdapter, name: string, uid: number, command?: string[]): Promise<number> {
   const tty = command === undefined && process.stdin.isTTY;
-  return docker.exec(name, uid, command, tty);
+  return adapter.exec(name, uid, command, tty);
 }
 
 export async function runContainer(cwd: string, config: FocusConfig, command?: string[]): Promise<number> {
@@ -77,30 +77,32 @@ export async function runContainer(cwd: string, config: FocusConfig, command?: s
   const hash = configHash(config);
   const interactive = command === undefined;
 
-  await pruneOrphanedContainers();
+  const adapter = await selectRuntime(config.runtime);
 
-  const existing = await docker.inspect(name);
+  await pruneOrphanedContainers(adapter);
+
+  const existing = await adapter.inspect(name);
   const action = resolveRunAction(existing, hash, interactive);
 
   if (action.type === 'attach') {
-    return attachContainer(name, uid, command);
+    return attachContainer(adapter, name, uid, command);
   }
   if (action.type === 'rebuild-interactive') {
     console.warn('[focus] Container is running with a different config.');
     const rebuild = await promptRebuild();
     if (!rebuild) return 0;
-    await docker.stop(name);
+    await adapter.stop(name);
   }
   if (action.type === 'rebuild-auto') {
     process.stderr.write('[focus] Config changed, rebuilding container...\n');
-    await docker.stop(name);
+    await adapter.stop(name);
   }
 
   const [mounts, image] = await Promise.all([
     resolveVolumeMounts(xdg, uid),
-    buildImage(config.tools, config.image, xdg.focusConfigDir),
+    buildImage(config.tools, config.image, xdg.focusConfigDir, adapter),
   ]);
-  return docker.start({
+  return adapter.start({
     name,
     image,
     cwd,
@@ -113,13 +115,15 @@ export async function runContainer(cwd: string, config: FocusConfig, command?: s
   });
 }
 
-export async function stopContainer(cwd: string): Promise<{ stopped: boolean }> {
-  return docker.stop(containerName(cwd));
+export async function stopContainer(cwd: string, config: FocusConfig): Promise<{ stopped: boolean }> {
+  const adapter = await selectRuntime(config.runtime);
+  return adapter.stop(containerName(cwd));
 }
 
 export async function containerStatus(cwd: string, config: FocusConfig): Promise<{ running: boolean; configCurrent: boolean | null }> {
+  const adapter = await selectRuntime(config.runtime);
   const name = containerName(cwd);
-  const result = await docker.inspect(name);
+  const result = await adapter.inspect(name);
   if (!result.running) return { running: false, configCurrent: null };
   const hash = configHash(config);
   return {

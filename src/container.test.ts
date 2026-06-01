@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { configHash, containerName, resolveRunAction } from './container.ts';
 import type { FocusConfig } from './config/resolver.ts';
-import type { InspectResult } from './runtime/docker.ts';
+import type { InspectResult } from './runtime/adapter.ts';
 
 const base: FocusConfig = {
   runtime: 'docker',
