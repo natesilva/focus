@@ -25,14 +25,6 @@ but without hard-coding the socket path.
 
 ---
 
-## Tool definitions in YAML (instead of hardcoded)
-
-**Context:** Built-in tool definitions (SSH, Claude, Rust, Node, etc.) are currently defined in source code. User-defined tools use a `.yaml` format for the same information.
-
-**Suggested approach when revisiting:** Extract built-in tool definitions into `.yaml` files that use the same schema as user-defined tools. The loader would read both from a built-ins directory (bundled with the binary) and from user config paths. This would make it easier to add, modify, or override built-in tools without touching source code, and would allow advanced users to override a built-in by name.
-
----
-
 ## DevContainer Features as a tool-configuration mechanism
 
 **Context:** The [DevContainer Features spec](https://containers.dev/implementors/features/) defines a standard, composable format for installing tools into containers — each Feature is a shell script with a `devcontainer-feature.json` manifest declaring options, dependencies, and install steps. There is a large community registry of Features.
