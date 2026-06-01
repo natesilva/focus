@@ -65,6 +65,14 @@ but without hard-coding the socket path.
 
 ---
 
+## Prerequisites key for tool profiles
+
+**Context:** Some tools depend on others being installed first. For example, the `claude-code` profile requires Node.js to be present before its install script can run, but there is currently no way to declare this dependency — the install order is implicit and fragile.
+
+**Suggested approach when revisiting:** Add an optional `prerequisites` list to the tool profile schema. Before installing a tool, the image builder resolves the full prerequisite graph and installs dependencies in topological order. If a declared prerequisite is not in the active tool set, the builder adds it automatically (or warns, depending on desired behavior). This replaces implicit ordering assumptions with an explicit, checkable contract.
+
+---
+
 ## Pre-create XDG config directory tree on first run
 
 **Context:** `~/.config/focus/` and its subdirectories (e.g. the directory for custom tool profiles) are not created during installation or first run. Users who want to add a custom tool profile must manually create the directory tree before placing a `.yaml` file there.
