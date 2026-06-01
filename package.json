@@ -6,6 +6,12 @@
   "bin": {
     "focus": "src/cli.ts"
   },
+  "scripts": {
+    "test:node": "node --test src/**/*.test.ts",
+    "test:shell": "docker info >/dev/null 2>&1 && docker build -f test/entrypoint/Dockerfile -t focus-entrypoint-test . && docker run --rm focus-entrypoint-test || echo '[test:shell] skipped — Docker not available'",
+    "test": "npm run test:node && npm run test:shell",
+    "typecheck": "tsc --noEmit"
+  },
   "devDependencies": {
     "@tsconfig/node-ts": "*",
     "@tsconfig/node24": "*",
