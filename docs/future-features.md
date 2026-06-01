@@ -65,6 +65,18 @@ but without hard-coding the socket path.
 
 ---
 
+## Docker socket forwarding (docker-in-focus)
+
+**Context:** Some tools (e.g. build pipelines, container-aware CLIs) need access to a Docker daemon from inside the container. The host Docker socket can be forwarded by resolving the active context's endpoint and bind-mounting it:
+
+```
+$(docker context inspect --format '{{.Endpoints.docker.Host}}' | sed 's|unix://||'):/var/run/docker.sock
+```
+
+**Suggested approach when revisiting:** Add a `docker` tool profile (or a `docker: true` flag in `.focus.yaml`) that resolves the active Docker context endpoint at container start time and adds the socket bind-mount to `StartOptions`. The Apple Containers adapter would need special handling since `container run` does not support arbitrary socket mounts the same way Docker does — this may be Docker-only initially. Mount the socket read-write only; do not set `DOCKER_HOST` unless the in-container path differs from the standard `/var/run/docker.sock`.
+
+---
+
 ## Prerequisites key for tool profiles
 
 **Context:** Some tools depend on others being installed first. For example, the `claude-code` profile requires Node.js to be present before its install script can run, but there is currently no way to declare this dependency — the install order is implicit and fragile.
