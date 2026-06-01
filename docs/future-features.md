@@ -93,6 +93,24 @@ $(docker context inspect --format '{{.Endpoints.docker.Host}}' | sed 's|unix://|
 
 ---
 
+## Volume mount scoping
+
+**Context:** All persistent tool volumes currently use the same sharing model: a named volume under `~/.local/share/focus/volumes/` that is shared across every `focus` instance regardless of working directory. This is appropriate for truly global state (e.g. Claude Code auth and configuration, which you want identical everywhere), but it is wrong for state that should vary per project, and it is the wrong mechanism entirely for resources that need to be readable by the host (e.g. SSH keys, Git config).
+
+Three meaningful scopes exist:
+
+| Scope | Volume backing | Use case |
+|---|---|---|
+| `global` (default) | Single named volume, shared by all `focus` instances | Claude Code config, shell history, editor settings |
+| `project` | Named volume keyed to the resolved path of the mounted directory | Per-project node_modules caches, project-specific credentials |
+| `host` | Bind-mount of the corresponding host path | SSH keys (`~/.ssh`), Git config (`~/.gitconfig`), GPG keys |
+
+The word "scope" is better than "sharing level" for this concept.
+
+**Suggested approach when revisiting:** Add an optional `scope` field to the volume descriptor type (currently only used internally by tool profiles). The image builder and `StartOptions` assembler use `scope` to decide whether to create/reuse a global named volume, create/reuse a per-project named volume (whose name is derived from a hash of the resolved host path), or emit a bind-mount. Default to `global` so existing behavior is unchanged. The `ssh` and `git` built-in profiles should switch to `scope: host`. Project-scoped volumes need a cleanup story — stale project volumes should be prunable with something like `focus volumes prune`.
+
+---
+
 ## Apple Containers: per-container resource limits
 
 **Context:** `container run` accepts `--cpus` and `--memory` flags that set per-VM CPU and memory limits. Docker supports these too, but they're not currently surfaced in `.focus.yaml`.
