@@ -65,6 +65,14 @@ but without hard-coding the socket path.
 
 ---
 
+## Pre-create XDG config directory tree on first run
+
+**Context:** `~/.config/focus/` and its subdirectories (e.g. the directory for custom tool profiles) are not created during installation or first run. Users who want to add a custom tool profile must manually create the directory tree before placing a `.yaml` file there.
+
+**Suggested approach when revisiting:** On startup (or during a dedicated init step), ensure the full XDG directory tree exists: `~/.config/focus/`, `~/.local/share/focus/volumes/`, `~/.cache/focus/`, and `~/.local/state/focus/`. Use `fs.mkdir` with `{ recursive: true }` so the call is idempotent and safe to run on every invocation.
+
+---
+
 ## Apple Containers: per-container resource limits
 
 **Context:** `container run` accepts `--cpus` and `--memory` flags that set per-VM CPU and memory limits. Docker supports these too, but they're not currently surfaced in `.focus.yaml`.
