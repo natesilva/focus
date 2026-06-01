@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildMounts, configHash, containerName, resolveRunAction } from './container.ts';
+import { getBuiltinProfile } from './profiles/catalog.ts';
 import type { XdgPaths } from './config/xdg.ts';
 import type { FocusConfig } from './config/resolver.ts';
 import type { InspectResult } from './runtime/adapter.ts';
@@ -143,7 +144,8 @@ describe('buildMounts', () => {
   it('includes volume mounts and file mounts from active profiles', async () => {
     const xdg = makeXdg(join(tmpBase, 'wiring'));
     const uid = process.getuid?.() ?? 1000;
-    const mounts = await buildMounts(['claude-code'], xdg, uid);
+    const claudeCodeProfile = getBuiltinProfile('claude-code')!;
+    const mounts = await buildMounts([claudeCodeProfile], xdg, uid);
 
     const claudeDir = mounts.find(m => m.containerPath.endsWith('/.claude'));
     assert.ok(claudeDir, 'claude volume mount should be present');
@@ -156,7 +158,8 @@ describe('buildMounts', () => {
   it('profiles with no files add no file mounts beyond volume mounts', async () => {
     const xdg = makeXdg(join(tmpBase, 'no-files'));
     const uid = process.getuid?.() ?? 1000;
-    const mounts = await buildMounts(['git'], xdg, uid);
+    const gitProfile2 = getBuiltinProfile('git')!;
+    const mounts = await buildMounts([gitProfile2], xdg, uid);
     const fileMounts = mounts.filter(m => m.containerPath.endsWith('.json'));
     assert.equal(fileMounts.length, 0);
   });

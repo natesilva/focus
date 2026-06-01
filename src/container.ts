@@ -9,7 +9,7 @@ import { buildImage } from './image-builder.ts';
 import type { InspectResult, RuntimeAdapter } from './runtime/adapter.ts';
 import { selectRuntime } from './runtime/index.ts';
 import { getHostUid } from './uid.ts';
-import { resolveFileMounts, resolveVolumeMounts, type MountDescriptor } from './volumes.ts';
+import { resolveFileMounts, resolveProfileVolumes, type MountDescriptor } from './volumes.ts';
 import { resolveProfiles } from './profiles/index.ts';
 import type { Profile } from './profiles/index.ts';
 import { xdgPaths, type XdgPaths } from './config/xdg.ts';
@@ -78,10 +78,10 @@ export async function attachContainer(adapter: RuntimeAdapter, name: string, uid
   return adapter.exec(name, uid, command, tty, TERMINAL_ENV);
 }
 
-export async function buildMounts(tools: string[], xdg: XdgPaths, uid: number): Promise<MountDescriptor[]> {
+export async function buildMounts(profiles: Profile[], xdg: XdgPaths, uid: number): Promise<MountDescriptor[]> {
   const [volumeMounts, fileMounts] = await Promise.all([
-    resolveVolumeMounts(xdg, uid),
-    resolveProfiles(tools, xdg.focusConfigDir).then(profiles => resolveFileMounts(profiles, xdg, uid)),
+    resolveProfileVolumes(profiles, xdg, uid),
+    resolveFileMounts(profiles, xdg, uid),
   ]);
   return [...volumeMounts, ...fileMounts];
 }
@@ -116,7 +116,7 @@ export async function runContainer(cwd: string, config: FocusConfig, command?: s
   }
 
   const [mounts, image] = await Promise.all([
-    buildMounts(config.tools, xdg, uid),
+    buildMounts(profiles, xdg, uid),
     buildImage(profiles, config.image, adapter),
   ]);
   return adapter.start({

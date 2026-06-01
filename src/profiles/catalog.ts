@@ -28,7 +28,7 @@ export const BUILTIN_PROFILES: readonly Profile[] = [
       "DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-client",
       "rm -rf /var/lib/apt/lists/*",
     ],
-    volumes: ["ssh"],
+    volumes: [".ssh"],
     files: {},
   },
   {
@@ -78,7 +78,7 @@ export const BUILTIN_PROFILES: readonly Profile[] = [
       "npm install -g @anthropic-ai/claude-code",
       "rm -rf /var/lib/apt/lists/*",
     ],
-    volumes: ["claude"],
+    volumes: [".claude"],
     files: { "~/.claude.json": { json: {} } },
   },
 ];

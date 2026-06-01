@@ -1,5 +1,4 @@
 import { chown, mkdir, stat, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import type { XdgPaths } from './config/xdg.ts';
 import type { FileInit, Profile } from './profiles/types.ts';
@@ -10,54 +9,11 @@ export interface MountDescriptor {
   readOnly: boolean;
 }
 
-interface DirectorySlot {
-  name: string;
-  hostPath: (xdg: XdgPaths) => string;
-  containerPath: string;
-  readOnly: boolean;
-  kind: 'directory';
-  /** Unix mode applied to newly-created directories. */
-  mode?: number;
-}
-
-interface FileSlot {
-  name: string;
-  containerPath: string;
-  readOnly: boolean;
-  kind: 'file';
-}
-
-type VolumeSlot = DirectorySlot | FileSlot;
-
 // Volumes are always mounted under /home/focususer. When the host user's UID maps to
 // a different user in the base image (e.g. ubuntu:24.04 ships 'ubuntu' at UID 1000),
 // the entrypoint creates symlinks from the actual home into this directory so the
 // running user can still find the volumes at the expected paths.
 const CONTAINER_HOME = '/home/focususer';
-
-const SLOTS: VolumeSlot[] = [
-  {
-    name: 'claude',
-    hostPath: (xdg) => join(xdg.focusVolumesDir, 'claude'),
-    containerPath: `${CONTAINER_HOME}/.claude`,
-    readOnly: false,
-    kind: 'directory',
-  },
-  {
-    name: 'ssh',
-    hostPath: (xdg) => join(xdg.focusVolumesDir, 'ssh'),
-    containerPath: `${CONTAINER_HOME}/.ssh`,
-    readOnly: false,
-    kind: 'directory',
-    mode: 0o700,
-  },
-  {
-    name: 'git',
-    containerPath: '/etc/gitconfig',
-    readOnly: true,
-    kind: 'file',
-  },
-];
 
 async function pathExists(p: string): Promise<boolean> {
   try {
@@ -68,30 +24,29 @@ async function pathExists(p: string): Promise<boolean> {
   }
 }
 
-export async function resolveVolumeMounts(
+export async function resolveProfileVolumes(
+  profiles: Profile[],
   xdg: XdgPaths,
   hostUid: number,
-  gitConfigPath = join(homedir(), '.gitconfig'),
 ): Promise<MountDescriptor[]> {
+  const seen = new Set<string>();
   const mounts: MountDescriptor[] = [];
 
-  for (const slot of SLOTS) {
-    if (slot.kind === 'file') {
-      if (await pathExists(gitConfigPath)) {
-        mounts.push({ hostPath: gitConfigPath, containerPath: slot.containerPath, readOnly: slot.readOnly });
+  for (const profile of profiles) {
+    for (const name of profile.volumes) {
+      if (seen.has(name)) continue;
+      seen.add(name);
+
+      const hostPath = join(xdg.focusVolumesDir, profile.name, name);
+      if (!await pathExists(hostPath)) {
+        // SSH refuses to use keys in a directory with loose permissions.
+        const mode = name === '.ssh' ? 0o700 : 0o755;
+        await mkdir(hostPath, { recursive: true, mode });
+        await chown(hostPath, hostUid, -1);
       }
-      continue;
-    }
 
-    const hostPath = slot.hostPath(xdg);
-    const exists = await pathExists(hostPath);
-    if (!exists) {
-      const mode = slot.mode ?? 0o755;
-      await mkdir(hostPath, { recursive: true, mode });
-      await chown(hostPath, hostUid, -1);
+      mounts.push({ hostPath, containerPath: `${CONTAINER_HOME}/${name}`, readOnly: false });
     }
-
-    mounts.push({ hostPath, containerPath: slot.containerPath, readOnly: slot.readOnly });
   }
 
   return mounts;

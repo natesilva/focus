@@ -26,9 +26,9 @@ describe('built-in profile catalog', () => {
     assert.deepEqual(profile?.volumes, []);
   });
 
-  it('claude-code declares the claude volume', () => {
+  it('claude-code declares the .claude volume', () => {
     const profile = getBuiltinProfile('claude-code');
-    assert.ok(profile?.volumes.includes('claude'), 'claude-code should require the claude volume');
+    assert.ok(profile?.volumes.includes('.claude'), 'claude-code should require the .claude volume');
   });
 
   it('claude-code declares ~/.claude.json with json init', () => {
@@ -38,9 +38,9 @@ describe('built-in profile catalog', () => {
     assert.ok(init !== null && 'json' in init, 'init should be a json variant');
   });
 
-  it('ssh declares the ssh volume', () => {
+  it('ssh declares the .ssh volume', () => {
     const profile = getBuiltinProfile('ssh');
-    assert.ok(profile?.volumes.includes('ssh'), 'ssh profile should require the ssh volume');
+    assert.ok(profile?.volumes.includes('.ssh'), 'ssh profile should require the .ssh volume');
   });
 });
 
