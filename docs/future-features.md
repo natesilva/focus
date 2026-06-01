@@ -132,3 +132,37 @@ The word "scope" is better than "sharing level" for this concept.
 **Context:** Every time the tool set or base image changes, `focus` builds a new image and leaves the old one behind. Over time this accumulates significant disk space with no automated cleanup.
 
 **Suggested approach when revisiting:** Add a `focus prune` subcommand that removes `focus-built` images that are no longer referenced by a running or stopped container. Optionally accept `--older-than <duration>` and `--project <path>` filters to narrow the scope. Print a dry-run summary by default and require `--confirm` (or `-y`) to actually delete, matching the UX of `docker image prune`. The implementation should go through the runtime adapter interface so it works with both Docker and Apple Containers backends.
+
+---
+
+## Mount CWD at `/focus/<dirname>` for worktree support and per-project harness isolation
+
+**Context:** The CWD is currently mounted at `/focus` regardless of the project name. This has two consequences:
+
+1. **No room for sibling worktrees.** Tools like Claude Code create git worktrees as siblings of the repo root (e.g. `../api-server-feature-x`). With the project at `/focus`, siblings would land outside `/focus` in an unmanaged part of the container filesystem.
+
+2. **All projects share the same harness settings path.** Claude Code and similar tools store per-project settings (allowed tools, model preferences, etc.) keyed to the working directory path. Since every project mounts at `/focus`, they all accumulate settings under the same key, defeating per-project isolation.
+
+Mounting the CWD at `/focus/<dirname>` instead (e.g. `~/dev/api-server` → `/focus/api-server`) fixes both: siblings land under `/focus/`, and each project has a distinct path that harnesses can use as a unique settings key.
+
+**Worktree persistence via nested mounts:**
+
+A symlink from `/focus/api-server` to the bind-mounted project path does not work — git resolves symlinks to their physical path via `realpath()`, so relative worktree creation (e.g. `git worktree add ../feature-x`) would resolve against the physical mount path and miss the `/focus/` namespace entirely. Hardlinks are impossible across different mount points.
+
+The approach that works is nested mounts:
+
+```
+-v focus-vol-<project-hash>:/focus          # per-project named volume, persists across restarts
+-v ~/dev/api-server:/focus/api-server       # bind mount, layered on top
+```
+
+Linux VFS handles nested mounts correctly. `/focus/api-server` is a real directory (not a symlink), so `pwd` and git agree on the path. Worktrees created at `/focus/api-server-feature-x` live in the named volume and survive container restarts. The `.git/worktrees/` metadata inside the bind-mounted repo also persists, so paths remain consistent.
+
+The named volume must be keyed per-project (e.g. by a hash of the resolved host path) to prevent worktrees from different projects accumulating in a shared volume.
+
+**Concerns to resolve before implementing:**
+
+- **Mount ordering:** the named volume must be declared before the nested bind mount; verify both adapters handle this correctly.
+- **Apple Containers:** nested mount support is less tested in this runtime than Docker — needs verification.
+- **Stale worktree cleanup:** worktrees from abandoned work accumulate in the named volume. Run `git worktree prune` automatically on container start, and ensure `focus prune` can also remove stale per-project volumes.
+- **Persistence necessity:** for short-lived agent tasks (spin up worktree, commit, discard), ephemerality is acceptable and startup pruning handles stale `.git/worktrees/` metadata. Persistence is only needed for long-lived parallel workstreams that must survive `focus stop`/`focus start` cycles. Evaluate whether this use case justifies the added complexity before implementing.
