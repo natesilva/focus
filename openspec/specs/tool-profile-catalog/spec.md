@@ -7,7 +7,7 @@ Defines the built-in catalog of named tool profiles and the mechanism for resolv
 ## Requirements
 
 ### Requirement: Predefined profile catalog
-The system SHALL define a built-in catalog of named tool profiles. Each profile SHALL declare an ordered list of shell install commands and an optional list of XDG volume directory names it requires. Volume names in `profile.volumes` are used verbatim by the volume manager and are now load-bearing: the volume manager uses them to determine which XDG-backed directories to create and mount. A profile with an empty `volumes` list produces no directory mounts.
+The system SHALL define a built-in catalog of named tool profiles loaded from bundled YAML files at `src/profiles/builtins/<name>.yaml`. Each profile SHALL declare an ordered list of shell install commands and an optional list of XDG volume directory names it requires. Volume names in `profile.volumes` are used verbatim by the volume manager and are load-bearing: the volume manager uses them to determine which XDG-backed directories to create and mount. A profile with an empty `volumes` list produces no directory mounts.
 
 #### Scenario: Catalog contains expected predefined profiles
 - **WHEN** the built-in profile catalog is queried
@@ -34,7 +34,7 @@ The system SHALL define a built-in catalog of named tool profiles. Each profile 
 - **THEN** the volume manager creates and mounts `<focusVolumesDir>/ssh/.ssh` into the container at `/home/focususer/.ssh`
 
 ### Requirement: Profile lookup by name
-The system SHALL resolve a profile name to its definition, merging the custom profile directory (searched first) with the built-in catalog (fallback).
+The system SHALL resolve a profile name to its definition, merging the custom profile directory (searched first) with the built-in catalog loaded from YAML (fallback).
 
 #### Scenario: Known built-in profile resolves
 - **WHEN** `getProfile("node")` is called and no custom profile named `node` exists
