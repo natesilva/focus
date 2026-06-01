@@ -54,18 +54,22 @@ export const BUILTIN_PROFILES: readonly Profile[] = [
     name: "rust",
     install: [
       "apt-get update -qq",
-      "DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential",
-      "curl --proto =https --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y",
+      "DEBIAN_FRONTEND=noninteractive apt-get install -y rustc cargo",
       "rm -rf /var/lib/apt/lists/*",
     ],
-    volumes: ["rust-cargo", "rust-rustup"],
+    volumes: [],
   },
   {
     name: "claude-code",
     install: [
       "apt-get update -qq",
       "DEBIAN_FRONTEND=noninteractive apt-get install -y curl ca-certificates",
-      "curl -fsSL https://claude.ai/install.sh | bash",
+      "curl -fsSL https://deb.nodesource.com/setup_24.x | bash -",
+      "DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs",
+      // npm's global prefix install lands claude in /usr/local/bin (on PATH for every
+      // user). The curl|bash native installer is per-user and targets $HOME/.local/bin,
+      // which is unreachable when building as root but running as the host-UID user.
+      "npm install -g @anthropic-ai/claude-code",
       "rm -rf /var/lib/apt/lists/*",
     ],
     volumes: ["claude"],
