@@ -73,7 +73,7 @@ but without hard-coding the socket path.
 $(docker context inspect --format '{{.Endpoints.docker.Host}}' | sed 's|unix://||'):/var/run/docker.sock
 ```
 
-**Suggested approach when revisiting:** Add a `docker` tool profile (or a `docker: true` flag in `.focus.yaml`) that resolves the active Docker context endpoint at container start time and adds the socket bind-mount to `StartOptions`. The Apple Containers adapter would need special handling since `container run` does not support arbitrary socket mounts the same way Docker does — this may be Docker-only initially. Mount the socket read-write only; do not set `DOCKER_HOST` unless the in-container path differs from the standard `/var/run/docker.sock`.
+**Suggested approach when revisiting:** Add a `docker` tool profile (or a `docker: true` flag in `.focus.yaml`) that resolves the active Docker context endpoint at container start time and adds the socket bind-mount to `StartOptions`. Both the Docker and Apple Containers adapters support socket bind-mounts via `--volume`, so no adapter-specific handling is needed. Mount the socket read-write only; do not set `DOCKER_HOST` unless the in-container path differs from the standard `/var/run/docker.sock`.
 
 ---
 
