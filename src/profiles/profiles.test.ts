@@ -4,43 +4,64 @@ import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadCustomProfiles } from './custom.ts';
-import { getBuiltinProfile, BUILTIN_PROFILES } from './catalog.ts';
+import { loadBuiltinProfiles } from './catalog.ts';
+import { loadProfilesFromDir } from './loader.ts';
 import { getProfile } from './index.ts';
 
 describe('built-in profile catalog', () => {
-  it('contains all expected profiles', () => {
-    const names = BUILTIN_PROFILES.map(p => p.name);
+  it('contains all expected profiles', async () => {
+    const map = await loadBuiltinProfiles();
     for (const expected of ['git', 'ripgrep', 'node', 'python', 'rust', 'claude-code', 'ssh']) {
-      assert.ok(names.includes(expected), `missing profile: ${expected}`);
+      assert.ok(map.has(expected), `missing profile: ${expected}`);
     }
   });
 
-  it('ripgrep has a non-empty install list', () => {
-    const profile = getBuiltinProfile('ripgrep');
+  it('ripgrep has a non-empty install list', async () => {
+    const map = await loadBuiltinProfiles();
+    const profile = map.get('ripgrep');
     assert.ok(profile, 'ripgrep profile should exist');
     assert.ok(profile.install.length > 0, 'install list should be non-empty');
   });
 
-  it('ripgrep has no volumes', () => {
-    const profile = getBuiltinProfile('ripgrep');
-    assert.deepEqual(profile?.volumes, []);
+  it('ripgrep has no volumes', async () => {
+    const map = await loadBuiltinProfiles();
+    assert.deepEqual(map.get('ripgrep')?.volumes, []);
   });
 
-  it('claude-code declares the .claude volume', () => {
-    const profile = getBuiltinProfile('claude-code');
-    assert.ok(profile?.volumes.includes('.claude'), 'claude-code should require the .claude volume');
+  it('claude-code declares the .claude volume', async () => {
+    const map = await loadBuiltinProfiles();
+    assert.ok(map.get('claude-code')?.volumes.includes('.claude'), 'claude-code should require the .claude volume');
   });
 
-  it('claude-code declares ~/.claude.json with json init', () => {
-    const profile = getBuiltinProfile('claude-code');
+  it('claude-code declares ~/.claude.json with json init', async () => {
+    const map = await loadBuiltinProfiles();
+    const profile = map.get('claude-code');
     const init = profile?.files['~/.claude.json'];
     assert.ok(init !== undefined, 'claude-code should persist ~/.claude.json');
     assert.ok(init !== null && 'json' in init, 'init should be a json variant');
   });
 
-  it('ssh declares the .ssh volume', () => {
-    const profile = getBuiltinProfile('ssh');
-    assert.ok(profile?.volumes.includes('.ssh'), 'ssh profile should require the .ssh volume');
+  it('ssh declares the .ssh volume', async () => {
+    const map = await loadBuiltinProfiles();
+    assert.ok(map.get('ssh')?.volumes.includes('.ssh'), 'ssh profile should require the .ssh volume');
+  });
+});
+
+describe('loadProfilesFromDir', () => {
+  it('throws when required directory does not exist', async () => {
+    await assert.rejects(
+      () => loadProfilesFromDir('/no/such/dir', { required: true }),
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.ok(err.message.includes('/no/such/dir'));
+        return true;
+      },
+    );
+  });
+
+  it('returns empty map when non-required directory does not exist', async () => {
+    const map = await loadProfilesFromDir('/no/such/dir', { required: false });
+    assert.equal(map.size, 0);
   });
 });
 

@@ -1,0 +1,5 @@
+install:
+  - apt-get update -qq
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y python3 python3-pip python3-venv curl
+  - curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+  - rm -rf /var/lib/apt/lists/*
