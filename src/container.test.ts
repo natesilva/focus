@@ -7,6 +7,7 @@ import { buildMounts, configHash, containerName, resolveRunAction } from './cont
 import type { XdgPaths } from './config/xdg.ts';
 import type { FocusConfig } from './config/resolver.ts';
 import type { InspectResult } from './runtime/adapter.ts';
+import type { Profile } from './profiles/types.ts';
 
 const base: FocusConfig = {
   runtime: 'docker',
@@ -14,6 +15,11 @@ const base: FocusConfig = {
   image: 'ubuntu:24.04',
   network: 'bridge',
 };
+
+const gitProfile: Profile = { name: 'git', install: ['apt-get install -y git'], volumes: [], files: {} };
+const nodeProfile: Profile = { name: 'node', install: ['apt-get install -y nodejs'], volumes: [], files: {} };
+const ripgrepProfile: Profile = { name: 'ripgrep', install: ['apt-get install -y ripgrep'], volumes: [], files: {} };
+const baseProfiles = [gitProfile, nodeProfile];
 
 describe('containerName', () => {
   it('same directory yields same name', () => {
@@ -63,37 +69,48 @@ describe('resolveRunAction', () => {
 
 describe('configHash', () => {
   it('identical config produces identical hash', () => {
-    const a = configHash({ ...base });
-    const b = configHash({ ...base });
+    const a = configHash({ ...base }, baseProfiles);
+    const b = configHash({ ...base }, baseProfiles);
     assert.equal(a, b);
   });
 
-  it('tool list order does not affect hash', () => {
-    const a = configHash({ ...base, tools: ['node', 'git'] });
-    const b = configHash({ ...base, tools: ['git', 'node'] });
+  it('profile order does not affect hash', () => {
+    const a = configHash({ ...base }, [nodeProfile, gitProfile]);
+    const b = configHash({ ...base }, [gitProfile, nodeProfile]);
     assert.equal(a, b);
   });
 
-  it('different tool lists produce different hashes', () => {
-    const a = configHash({ ...base, tools: ['git'] });
-    const b = configHash({ ...base, tools: ['git', 'ripgrep'] });
+  it('different profile sets produce different hashes', () => {
+    const a = configHash({ ...base }, [gitProfile]);
+    const b = configHash({ ...base }, [gitProfile, ripgrepProfile]);
     assert.notEqual(a, b);
   });
 
   it('different base images produce different hashes', () => {
-    const a = configHash({ ...base, image: 'ubuntu:24.04' });
-    const b = configHash({ ...base, image: 'debian:bookworm-slim' });
+    const a = configHash({ ...base, image: 'ubuntu:24.04' }, baseProfiles);
+    const b = configHash({ ...base, image: 'debian:bookworm-slim' }, baseProfiles);
     assert.notEqual(a, b);
   });
 
   it('hash is 16 hex characters', () => {
-    assert.match(configHash(base), /^[0-9a-f]{16}$/);
+    assert.match(configHash(base, baseProfiles), /^[0-9a-f]{16}$/);
   });
 
-  it('runtime and network fields do not affect hash', () => {
-    const a = configHash({ ...base, runtime: 'docker', network: 'bridge' });
-    const b = configHash({ ...base, runtime: 'apple-containers', network: 'none' });
+  it('runtime does not affect hash', () => {
+    const a = configHash({ ...base, runtime: 'docker' }, baseProfiles);
+    const b = configHash({ ...base, runtime: 'apple-containers' }, baseProfiles);
     assert.equal(a, b);
+  });
+
+  it('network affects hash', () => {
+    const a = configHash({ ...base, network: 'bridge' }, baseProfiles);
+    const b = configHash({ ...base, network: 'none' }, baseProfiles);
+    assert.notEqual(a, b);
+  });
+
+  it('changed profile install steps produce a different hash', () => {
+    const gitV2: Profile = { ...gitProfile, install: [...gitProfile.install, 'git config --global core.autocrlf false'] };
+    assert.notEqual(configHash({ ...base }, [gitV2]), configHash({ ...base }, [gitProfile]));
   });
 });
 

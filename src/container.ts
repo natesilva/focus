@@ -11,6 +11,7 @@ import { selectRuntime } from './runtime/index.ts';
 import { getHostUid } from './uid.ts';
 import { resolveFileMounts, resolveVolumeMounts, type MountDescriptor } from './volumes.ts';
 import { resolveProfiles } from './profiles/index.ts';
+import type { Profile } from './profiles/index.ts';
 import { xdgPaths, type XdgPaths } from './config/xdg.ts';
 
 function loadEntrypointScript(): string {
@@ -23,9 +24,13 @@ export function containerName(cwd: string): string {
   return `focus-${hash}`;
 }
 
-export function configHash(config: FocusConfig): string {
-  const sorted = [...config.tools].sort();
-  const data = JSON.stringify({ tools: sorted, image: config.image });
+export function configHash(config: FocusConfig, profiles: Profile[]): string {
+  const sorted = [...profiles].sort((a, b) => a.name.localeCompare(b.name));
+  const data = JSON.stringify({
+    image: config.image,
+    network: config.network,
+    profiles: sorted.map(p => ({ name: p.name, install: p.install, files: p.files, volumes: p.volumes })),
+  });
   return createHash('sha256').update(data).digest('hex').slice(0, 16);
 }
 
@@ -85,13 +90,14 @@ export async function runContainer(cwd: string, config: FocusConfig, command?: s
   const uid = getHostUid();
   const xdg = xdgPaths();
   const name = containerName(cwd);
-  const hash = configHash(config);
   const interactive = command === undefined;
 
   const adapter = await selectRuntime(config.runtime);
 
   await pruneOrphanedContainers(adapter);
 
+  const profiles = await resolveProfiles(config.tools, xdg.focusConfigDir);
+  const hash = configHash(config, profiles);
   const existing = await adapter.inspect(name);
   const action = resolveRunAction(existing, hash, interactive);
 
@@ -111,7 +117,7 @@ export async function runContainer(cwd: string, config: FocusConfig, command?: s
 
   const [mounts, image] = await Promise.all([
     buildMounts(config.tools, xdg, uid),
-    buildImage(config.tools, config.image, xdg.focusConfigDir, adapter),
+    buildImage(profiles, config.image, adapter),
   ]);
   return adapter.start({
     name,
@@ -137,7 +143,8 @@ export async function containerStatus(cwd: string, config: FocusConfig): Promise
   const name = containerName(cwd);
   const result = await adapter.inspect(name);
   if (!result.running) return { running: false, configCurrent: null };
-  const hash = configHash(config);
+  const profiles = await resolveProfiles(config.tools, xdgPaths().focusConfigDir);
+  const hash = configHash(config, profiles);
   return {
     running: true,
     configCurrent: result.labels['focus.config-hash'] === hash,
