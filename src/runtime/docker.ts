@@ -2,25 +2,11 @@ import type { ExecFileException } from 'node:child_process';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { MountDescriptor } from '../volumes.ts';
+import type { RuntimeAdapter, StartOptions, InspectResult } from './adapter.ts';
+
+export type { StartOptions, InspectResult } from './adapter.ts';
 
 const execFileAsync = promisify(execFile);
-
-export interface StartOptions {
-  name: string;
-  image: string;
-  cwd: string;
-  uid: number;
-  configHash: string;
-  entrypointScript: string;
-  command?: string[];
-  network?: 'none';
-  mounts?: MountDescriptor[];
-}
-
-export interface InspectResult {
-  running: boolean;
-  labels: Record<string, string>;
-}
 
 export function buildVolumeFlags(mounts: MountDescriptor[]): string[] {
   return mounts.flatMap(m =>
@@ -129,6 +115,43 @@ export async function stop(name: string): Promise<{ stopped: boolean }> {
       return { stopped: false };
     }
     throw err;
+  }
+}
+
+export class DockerRuntimeAdapter implements RuntimeAdapter {
+  start(opts: StartOptions): Promise<number> { return start(opts); }
+  exec(name: string, uid: number, command: string[] | undefined, tty: boolean): Promise<number> { return exec(name, uid, command, tty); }
+  inspect(name: string): Promise<InspectResult> { return inspect(name); }
+  stop(name: string): Promise<{ stopped: boolean }> { return stop(name); }
+  listFocusContainers(): Promise<Array<{ name: string; cwd: string }>> { return listFocusContainers(); }
+
+  async imageExists(tag: string): Promise<boolean> {
+    try {
+      await execFileAsync('docker', ['image', 'inspect', tag]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async buildImage(tag: string, dockerfile: string): Promise<void> {
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn('docker', ['build', '-t', tag, '-'], {
+        stdio: ['pipe', process.stderr, process.stderr],
+      });
+      const { stdin } = child;
+      if (stdin === null) {
+        reject(new Error('docker build: stdin stream unavailable'));
+        return;
+      }
+      stdin.write(dockerfile);
+      stdin.end();
+      child.on('close', (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`docker build failed with exit code ${code ?? 'null'}`));
+      });
+      child.on('error', reject);
+    });
   }
 }
 
