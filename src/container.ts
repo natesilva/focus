@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { access } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { FocusConfig } from './config/resolver.ts';
 import { buildImage } from './image-builder.ts';
@@ -73,6 +73,12 @@ async function promptRebuild(): Promise<boolean> {
 
 const TERMINAL_ENV = { TERM: 'xterm-256color', COLORTERM: 'truecolor' };
 
+export function resolvePromptStyle(prompt: NonNullable<FocusConfig['shell']>['prompt']): 'two-line' | 'inline' | 'off' {
+  if (prompt === false) return 'off';
+  if (typeof prompt === 'object' && prompt.style === 'inline') return 'inline';
+  return 'two-line';
+}
+
 export async function attachContainer(adapter: RuntimeAdapter, name: string, uid: number, command?: string[]): Promise<number> {
   const tty = command === undefined && process.stdin.isTTY;
   return adapter.exec(name, uid, command, tty, TERMINAL_ENV);
@@ -129,7 +135,11 @@ export async function runContainer(cwd: string, config: FocusConfig, command?: s
     command,
     network: config.network === 'none' ? 'none' : undefined,
     mounts,
-    env: TERMINAL_ENV,
+    env: {
+      ...TERMINAL_ENV,
+      FOCUS_PROJECT: basename(cwd),
+      FOCUS_PROMPT_STYLE: resolvePromptStyle(config.shell?.prompt),
+    },
   });
 }
 

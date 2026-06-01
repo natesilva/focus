@@ -34,6 +34,22 @@ fi
 
 cd /focus
 
+if [ "${FOCUS_PROMPT_STYLE:-two-line}" != "off" ]; then
+    if ! grep -q '# focus-prompt' /etc/bash.bashrc 2>/dev/null; then
+        if [ "${FOCUS_PROMPT_STYLE:-two-line}" = "inline" ]; then
+            cat >> /etc/bash.bashrc << 'EOF'
+# focus-prompt
+PS1='\[\e[1;32m\][focus · ${FOCUS_PROJECT}]\[\e[0m\] \[\e[0;34m\]\w\[\e[0m\] \$ '
+EOF
+        else
+            cat >> /etc/bash.bashrc << 'EOF'
+# focus-prompt
+PS1='\[\e[1;32m\][focus · ${FOCUS_PROJECT}]\[\e[0m\] \[\e[0;34m\]\w\[\e[0m\]\n\$ '
+EOF
+        fi
+    fi
+fi
+
 if [ "$#" -eq 0 ]; then
     exec runuser -u "$USERNAME" -- /bin/bash -i
 else

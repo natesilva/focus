@@ -6,6 +6,7 @@ export interface FocusConfig {
   tools: string[];
   image: string;
   network: 'bridge' | 'none';
+  shell?: { prompt?: boolean | { style: 'inline' | 'two-line' } };
 }
 
 export interface ConfigFlags {
@@ -24,5 +25,6 @@ export async function resolveConfig(projectDir: string, flags?: ConfigFlags): Pr
     tools: flags?.tools ?? project?.tools ?? global.tools,
     image: flags?.image ?? project?.image ?? global.image,
     network: flags?.network ?? project?.network ?? 'bridge',
+    shell: project?.shell,
   };
 }

@@ -4,11 +4,16 @@ import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 import { FocusError } from '../errors.ts';
 
+const PromptStyleSchema = z.object({ style: z.enum(['inline', 'two-line']) });
+
 const ProjectConfigSchema = z.object({
   runtime: z.enum(['auto', 'docker', 'apple-containers']).optional(),
   tools: z.array(z.string()).optional(),
   image: z.string().optional(),
   network: z.enum(['bridge', 'none']).optional(),
+  shell: z.object({
+    prompt: z.union([z.boolean(), PromptStyleSchema]).optional(),
+  }).strict().optional(),
 }).strict();
 
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;

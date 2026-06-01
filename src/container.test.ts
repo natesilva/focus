@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildMounts, configHash, containerName, resolveRunAction } from './container.ts';
+import { buildMounts, configHash, containerName, resolvePromptStyle, resolveRunAction } from './container.ts';
 import { loadBuiltinProfiles } from './profiles/catalog.ts';
 import type { XdgPaths } from './config/xdg.ts';
 import type { FocusConfig } from './config/resolver.ts';
@@ -112,6 +112,28 @@ describe('configHash', () => {
   it('changed profile install steps produce a different hash', () => {
     const gitV2: Profile = { ...gitProfile, install: [...gitProfile.install, 'git config --global core.autocrlf false'] };
     assert.notEqual(configHash({ ...base }, [gitV2]), configHash({ ...base }, [gitProfile]));
+  });
+});
+
+describe('resolvePromptStyle', () => {
+  it('returns two-line for undefined', () => {
+    assert.equal(resolvePromptStyle(undefined), 'two-line');
+  });
+
+  it('returns two-line for true', () => {
+    assert.equal(resolvePromptStyle(true), 'two-line');
+  });
+
+  it('returns off for false', () => {
+    assert.equal(resolvePromptStyle(false), 'off');
+  });
+
+  it('returns inline for { style: "inline" }', () => {
+    assert.equal(resolvePromptStyle({ style: 'inline' }), 'inline');
+  });
+
+  it('returns two-line for { style: "two-line" }', () => {
+    assert.equal(resolvePromptStyle({ style: 'two-line' }), 'two-line');
   });
 });
 
