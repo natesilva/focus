@@ -28,11 +28,10 @@ interface FileSlot {
 
 type VolumeSlot = DirectorySlot | FileSlot;
 
-// The entrypoint creates a user named 'focususer'; their home is /home/focususer.
-// Caveat: ubuntu:24.04 ships a pre-existing 'ubuntu' user with UID 1000, so a host
-// user running as UID 1000 will land in /home/ubuntu, not /home/focususer, and these
-// mounts will target the wrong home. Phase 6 (runtime abstraction) is the right place
-// to derive the container home dynamically from the resolved user identity.
+// Volumes are always mounted under /home/focususer. When the host user's UID maps to
+// a different user in the base image (e.g. ubuntu:24.04 ships 'ubuntu' at UID 1000),
+// the entrypoint creates symlinks from the actual home into this directory so the
+// running user can still find the volumes at the expected paths.
 const CONTAINER_HOME = '/home/focususer';
 
 const SLOTS: VolumeSlot[] = [
