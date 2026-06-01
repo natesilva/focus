@@ -31,9 +31,11 @@ describe('built-in profile catalog', () => {
     assert.ok(profile?.volumes.includes('claude'), 'claude-code should require the claude volume');
   });
 
-  it('claude-code declares ~/.claude.json in files', () => {
+  it('claude-code declares ~/.claude.json with json init', () => {
     const profile = getBuiltinProfile('claude-code');
-    assert.ok(profile?.files.includes('~/.claude.json'), 'claude-code should persist ~/.claude.json');
+    const init = profile?.files['~/.claude.json'];
+    assert.ok(init !== undefined, 'claude-code should persist ~/.claude.json');
+    assert.ok(init !== null && 'json' in init, 'init should be a json variant');
   });
 
   it('ssh declares the ssh volume', () => {
@@ -71,7 +73,7 @@ describe('loadCustomProfiles', () => {
     assert.ok(profile, 'mytools profile should be loaded');
     assert.deepEqual(profile.install, ['apt-get install -y jq']);
     assert.deepEqual(profile.volumes, []);
-    assert.deepEqual(profile.files, []);
+    assert.deepEqual(profile.files, {});
   });
 
   it('defaults volumes to empty array when omitted', async () => {
@@ -85,7 +87,7 @@ describe('loadCustomProfiles', () => {
     assert.deepEqual(map.get('novolumes')?.volumes, []);
   });
 
-  it('defaults files to empty array when omitted', async () => {
+  it('defaults files to empty map when omitted', async () => {
     const configDir = join(tmpBase, 'default-files');
     await mkdir(join(configDir, 'profiles'), { recursive: true });
     await writeFile(
@@ -93,18 +95,59 @@ describe('loadCustomProfiles', () => {
       'install:\n  - echo hi\n',
     );
     const map = await loadCustomProfiles(configDir);
-    assert.deepEqual(map.get('nofiles')?.files, []);
+    assert.deepEqual(map.get('nofiles')?.files, {});
   });
 
-  it('loads files when specified', async () => {
-    const configDir = join(tmpBase, 'with-files');
+  it('loads files with null init', async () => {
+    const configDir = join(tmpBase, 'with-files-null');
     await mkdir(join(configDir, 'profiles'), { recursive: true });
     await writeFile(
       join(configDir, 'profiles', 'withfiles.yaml'),
-      'install:\n  - echo hi\nfiles:\n  - ~/.my-tool.json\n',
+      'install:\n  - echo hi\nfiles:\n  ~/.my-tool.json: null\n',
     );
     const map = await loadCustomProfiles(configDir);
-    assert.deepEqual(map.get('withfiles')?.files, ['~/.my-tool.json']);
+    assert.deepEqual(map.get('withfiles')?.files, { '~/.my-tool.json': null });
+  });
+
+  it('loads files with json init', async () => {
+    const configDir = join(tmpBase, 'with-files-json');
+    await mkdir(join(configDir, 'profiles'), { recursive: true });
+    await writeFile(
+      join(configDir, 'profiles', 'withjson.yaml'),
+      'install:\n  - echo hi\nfiles:\n  ~/.config.json:\n    json:\n      theme: dark\n',
+    );
+    const map = await loadCustomProfiles(configDir);
+    const init = map.get('withjson')?.files['~/.config.json'];
+    assert.ok(init !== null && init !== undefined && 'json' in init);
+    assert.deepEqual(init.json, { theme: 'dark' });
+  });
+
+  it('loads files with text init', async () => {
+    const configDir = join(tmpBase, 'with-files-text');
+    await mkdir(join(configDir, 'profiles'), { recursive: true });
+    await writeFile(
+      join(configDir, 'profiles', 'withtext.yaml'),
+      'install:\n  - echo hi\nfiles:\n  ~/.myrc:\n    text: "# default config"\n',
+    );
+    const map = await loadCustomProfiles(configDir);
+    const init = map.get('withtext')?.files['~/.myrc'];
+    assert.ok(init !== null && init !== undefined && 'text' in init);
+    assert.equal(init.text, '# default config');
+  });
+
+  it('rejects files declared as an array (old format)', async () => {
+    const configDir = join(tmpBase, 'array-files');
+    await mkdir(join(configDir, 'profiles'), { recursive: true });
+    const filePath = join(configDir, 'profiles', 'oldformat.yaml');
+    await writeFile(filePath, 'install:\n  - echo hi\nfiles:\n  - ~/.my-tool.json\n');
+    await assert.rejects(
+      () => loadCustomProfiles(configDir),
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.ok(err.message.includes(filePath), 'error should mention the file path');
+        return true;
+      },
+    );
   });
 
   it('loads volumes when specified', async () => {

@@ -4,10 +4,16 @@ import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 import type { Profile } from './types.ts';
 
+const FileInitSchema = z.union([
+  z.null(),
+  z.object({ json: z.unknown() }),
+  z.object({ text: z.string() }),
+]);
+
 const CustomProfileSchema = z.object({
   install: z.array(z.string()),
   volumes: z.array(z.string()).default([]),
-  files: z.array(z.string()).default([]),
+  files: z.record(z.string(), FileInitSchema).default({}),
 }).strict();
 
 export async function loadCustomProfiles(configDir: string): Promise<Map<string, Profile>> {

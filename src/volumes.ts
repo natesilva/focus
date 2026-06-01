@@ -2,7 +2,7 @@ import { chown, mkdir, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import type { XdgPaths } from './config/xdg.ts';
-import type { Profile } from './profiles/types.ts';
+import type { FileInit, Profile } from './profiles/types.ts';
 
 export interface MountDescriptor {
   hostPath: string;
@@ -97,6 +97,12 @@ export async function resolveVolumeMounts(
   return mounts;
 }
 
+function serializeInit(init: FileInit | null): string {
+  if (init === null) return '';
+  if ('json' in init) return JSON.stringify(init.json, null, 2);
+  return init.text;
+}
+
 export async function resolveFileMounts(
   profiles: Profile[],
   xdg: XdgPaths,
@@ -105,7 +111,7 @@ export async function resolveFileMounts(
   const mounts: MountDescriptor[] = [];
 
   for (const profile of profiles) {
-    for (const filePath of profile.files) {
+    for (const [filePath, init] of Object.entries(profile.files)) {
       if (!filePath.startsWith('~/')) {
         throw new Error(
           `Profile "${profile.name}" declares an invalid file path "${filePath}": paths must start with ~/`,
@@ -123,7 +129,7 @@ export async function resolveFileMounts(
       }
 
       if (!await pathExists(hostPath)) {
-        await writeFile(hostPath, '');
+        await writeFile(hostPath, serializeInit(init));
         await chown(hostPath, hostUid, -1);
       }
 
