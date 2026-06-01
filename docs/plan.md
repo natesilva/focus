@@ -92,6 +92,8 @@ This phase is deliberately last among the core features: the adapter interface w
 - `focus --version` and basic self-diagnostic command
 - License file
 - Example `.focus.yaml` files for common project types
+- Set `TERM`/`COLORTERM` in the container environment (e.g. `xterm-256color`/`truecolor`) so interactive tools render full color instead of a washed-out palette
+- Automated coverage for `entrypoint.sh` behaviors (no shell/integration test harness exists yet): home-directory ownership for the non-root user, and the volume-dotdir symlink fallback when the host UID maps to a pre-existing image user — see `container-launch` and `volume-manager` specs
 
 ---
 
