@@ -20,7 +20,7 @@ The practical problem is friction. Setting up a proper container environment for
 
 ## Built with OpenSpec
 
-`focus` was developed using **[OpenSpec](https://fission.ai/openspec)** and **Spec-Driven Development (SDD)** — a workflow in which features are specified before they're coded, and implementation is verified against the specs. This is the software engineering equivalent of measuring twice and cutting once, except the measuring is done by a large language model and the cutting sometimes requires a follow-up conversation.
+`focus` was developed using **[OpenSpec](https://github.com/Fission-AI/OpenSpec/)** and **Spec-Driven Development (SDD)** — a workflow in which features are specified before they're coded, and implementation is verified against the specs. This is the software engineering equivalent of measuring twice and cutting once, except the measuring is done by a large language model and the cutting sometimes requires a follow-up conversation.
 
 Every meaningful feature in `focus` started as a proposal, was refined into a spec, and was implemented against that spec. The planning artifacts live in [`docs/internal/`](internal/) alongside the code. You're welcome to read them. They contain a surprising amount of decisions about directory names.
 
