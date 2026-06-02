@@ -21,6 +21,11 @@ if [ -d "$ACTUAL_HOME" ]; then
     chown "$FOCUS_UID" "$ACTUAL_HOME"
 fi
 
+# The workspace volume at /work is also created as root. Without this, the user
+# cannot create git worktrees or other directories alongside the project bind-mount.
+# Non-recursive: /work/<dirname> is a bind-mount with its own host-derived ownership.
+chown "$FOCUS_UID" /work
+
 # Volumes are always mounted under FOCUS_VOLUME_HOME. If the container user's home
 # differs (e.g. ubuntu:24.04 maps UID 1000 to 'ubuntu' with home /home/ubuntu),
 # symlink each volume directory into the actual home so tools find them at ~/.xxx.

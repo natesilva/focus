@@ -36,6 +36,17 @@ The project directory SHALL be bind-mounted at `/work/<dirname>` inside the cont
 - **WHEN** two projects share the same directory basename (e.g. `~/work/app` and `~/personal/app`)
 - **THEN** each has its own container and workspace volume; their `/work` namespaces are independent
 
+### Requirement: /work directory writable by the container user
+The container entrypoint SHALL `chown` the `/work` directory to the container user (`$FOCUS_UID`) so that the user can create git worktrees and other directories alongside the project bind-mount. This `chown` SHALL be non-recursive: `/work/<dirname>` is a bind-mount whose ownership derives from the host filesystem and SHALL NOT be overridden.
+
+#### Scenario: User can create worktrees in /work
+- **WHEN** the container starts and the user runs `git worktree add /work/<project>-branch`
+- **THEN** git can create the worktree directory under `/work` without a permission error
+
+#### Scenario: Bind-mounted project directory ownership unchanged
+- **WHEN** the entrypoint runs `chown $FOCUS_UID /work`
+- **THEN** the ownership of `/work/<dirname>` (the bind-mounted project directory) is unaffected
+
 ### Requirement: Git worktrees created as siblings persist across restarts
 Files written to `/work` at paths other than `/work/<dirname>` (such as git worktrees created by tools like Claude Code) SHALL persist in the workspace volume across container stop/start cycles.
 
