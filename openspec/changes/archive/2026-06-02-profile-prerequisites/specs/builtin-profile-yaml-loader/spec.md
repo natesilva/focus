@@ -1,10 +1,4 @@
-# Builtin Profile YAML Loader
-
-## Purpose
-
-Defines how built-in profile definitions are loaded from bundled YAML files at startup, including path resolution, schema validation, and error handling for missing or malformed files.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Builtin profiles loaded from bundled YAML files
 The system SHALL load built-in profile definitions from YAML files located in the `builtins/` directory adjacent to the profile loader source. Each file SHALL be named `<profile-name>.yaml` and SHALL conform to the profile YAML schema (`install`, `prerequisites`, `volumes`, and `files` fields). The loader SHALL treat a missing or empty `builtins/` directory as a hard error.
@@ -24,10 +18,3 @@ The system SHALL load built-in profile definitions from YAML files located in th
 #### Scenario: Missing builtins directory throws
 - **WHEN** the builtins directory does not exist at the expected path
 - **THEN** the system throws an error (not a silent no-op)
-
-### Requirement: Builtin profile loader uses import.meta.dirname for path resolution
-The loader SHALL resolve the builtins directory path relative to the executing module file using `import.meta.dirname`, so the path remains correct regardless of the process working directory.
-
-#### Scenario: Builtins found regardless of working directory
-- **WHEN** `focus` is invoked from a directory other than the project root
-- **THEN** the builtins directory is located correctly and all built-in profiles are available
