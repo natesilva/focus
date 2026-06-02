@@ -1,6 +1,6 @@
 # Configuration
 
-`focus` has two config files: a per-project one committed to the repo, and a global one for your user-level defaults. CLI flags override both. This is the correct and sensible layering of configuration authority, which is why we're pointing it out — correct and sensible things deserve acknowledgment.
+`focus` has two config files: a per-project one committed to the repo, and a global one for your user-level defaults. CLI flags override both.
 
 **Precedence: global → project → CLI flags**
 
@@ -8,7 +8,7 @@
 
 ## Per-project: `.focus.yaml`
 
-Drop this file at the root of your project and commit it. It makes the environment reproducible for anyone using `focus`, including future-you, who will have forgotten everything about this project and will be grateful that past-you was so organized.
+This file is optional — without it, `focus` runs with your global defaults. Drop it at the root of your project and commit it to make the environment reproducible for your team. Run `focus init` to generate a starter file.
 
 ```yaml
 # .focus.yaml
@@ -28,7 +28,7 @@ shell:
 
 | Field | Default | Description |
 |---|---|---|
-| `tools` | `[]` | Profile names to install (see [Profiles](profiles.md)) |
+| `tools` | `[]` | Profile names to install (see [Tool Profiles](tool-profiles.md)) |
 | `runtime` | `auto` | Runtime backend: `auto`, `docker`, or `apple-containers` |
 | `network` | `bridge` | `none` disables all networking (air-gapped) |
 | `image` | `ubuntu:24.04` | Base container image |
@@ -38,7 +38,7 @@ shell:
 
 ## Global: `~/.config/focus/config.yaml`
 
-User-level defaults applied to every project. Per-project config overrides these fields when set. Think of this as the settings you'd rather not explain to every new repo you clone.
+User-level defaults applied to every project. Per-project config overrides these fields when set. Think of this as the settings you'd rather not repeat in every repo you clone.
 
 ```yaml
 # ~/.config/focus/config.yaml
@@ -48,20 +48,20 @@ tools:
 image: ubuntu:24.04
 ```
 
-The path respects `$XDG_CONFIG_HOME` — if that variable is set, `focus` looks for the config at `$XDG_CONFIG_HOME/focus/config.yaml`. If you don't know what `$XDG_CONFIG_HOME` is, it almost certainly isn't set, and you can stop reading this sentence.
+The path respects `$XDG_CONFIG_HOME` — if that variable is set, `focus` looks for the config at `$XDG_CONFIG_HOME/focus/config.yaml`.
 
 ---
 
 ## XDG paths
 
-`focus` follows the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/), which is a formal document that tells software where to put its files so they're not all in your home directory. All paths respect their corresponding `$XDG_*` variable if set.
+`focus` follows the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/). All paths respect their corresponding `$XDG_*` variable if set.
 
 | Path | XDG variable | Purpose |
 |---|---|---|
 | `~/.config/focus/` | `$XDG_CONFIG_HOME` | `config.yaml`, custom tool profiles |
 | `~/.local/share/focus/volumes/` | `$XDG_DATA_HOME` | Persistent tool volumes (auth, SSH keys, etc.) |
 | `~/.cache/focus/` | `$XDG_CACHE_HOME` | Built image layer cache — safe to delete |
-| `~/.local/state/focus/` | `$XDG_STATE_HOME` | Currently unused (it's just sitting there, waiting) |
+| `~/.local/state/focus/` | `$XDG_STATE_HOME` | Currently unused |
 
 ---
 
@@ -73,4 +73,4 @@ The path respects `$XDG_CONFIG_HOME` — if that variable is set, `focus` looks 
 | `docker` | Force Docker-compatible (uses the active Docker context) |
 | `apple-containers` | Force Apple Containers (macOS 26+ only) |
 
-Podman integrates via Docker contexts — no special `focus` configuration needed. Set Podman as your active Docker context and `runtime: docker` (or `auto`) works as expected. This is a reasonable thing to do and `focus` will not ask any follow-up questions about it.
+Podman integrates via Docker contexts — no special `focus` configuration needed. Set Podman as your active Docker context and `runtime: docker` (or `auto`) works as expected.

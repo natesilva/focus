@@ -48,7 +48,7 @@ A `docs/configuration.md` file SHALL document all configuration files, their XDG
 - **THEN** they see a table of all XDG paths focus uses and their purpose
 
 ### Requirement: Profile reference exists
-A `docs/profiles.md` file SHALL document the built-in profile catalog and the custom profile format.
+A `docs/tool-profiles.md` file SHALL document the built-in profile catalog and the custom profile format.
 
 #### Scenario: Built-in catalog listed
 - **WHEN** a user reads the profiles reference
@@ -73,15 +73,19 @@ A `docs/about.md` file SHALL state what focus is, acknowledge it was developed u
 - **THEN** they see a statement that focus was built using OpenSpec and SDD methodology
 
 ### Requirement: User-facing documentation has a distinctive voice
-All user-facing documentation in `docs/` (excluding `docs/internal/`) SHALL be written in a sardonic, mildly absurdist voice inspired by GlaDOS (Portal) and Carrot Weather. The voice SHALL be consistent across all files. All factual content, commands, paths, field names, and defaults SHALL remain accurate and complete. Humor SHALL augment comprehension, not impede it — a reader who ignores all comedic elements SHALL still receive correct, complete information.
+All user-facing documentation in `docs/` (excluding `docs/internal/`) SHALL be written in a professional, direct tone with occasional dry wit. The voice SHALL be consistent across all files. Humor is permitted when it arises naturally from the writing, but SHALL NOT be a structural requirement of every paragraph. The documentation SHALL read as competent technical writing with character — not as a comedy vehicle that happens to contain documentation. All factual content, commands, paths, field names, and defaults SHALL remain accurate and complete.
 
 #### Scenario: Commands and paths are unaffected by humor
 - **WHEN** a user reads any documentation page
 - **THEN** all shell commands, file paths, YAML field names, and default values are accurate and runnable
 
-#### Scenario: Voice is present across all user-facing docs
-- **WHEN** a user reads `docs/index.md`, `docs/about.md`, `docs/getting-started.md`, `docs/configuration.md`, `docs/profiles.md`, or `docs/focus-vs-devcontainers.md`
-- **THEN** the prose contains sardonic or absurdist observations consistent with the GlaDOS/Carrot Weather register
+#### Scenario: Prose is professional and clear
+- **WHEN** a user reads any user-facing doc page
+- **THEN** the primary reading experience is clear, direct technical writing — not a performance of sardonic wit
+
+#### Scenario: Occasional dry humor is acceptable
+- **WHEN** a user reads any user-facing doc page
+- **THEN** a dry observation or light quip may appear where it fits naturally, without disrupting the flow of information
 
 #### Scenario: Humor does not displace required information
 - **WHEN** a user reads the getting started guide
