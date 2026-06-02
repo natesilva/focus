@@ -18,17 +18,13 @@ const ProfileSchema = z.object({
 
 export async function loadProfilesFromDir(
   dir: string,
-  opts: { required: boolean },
 ): Promise<Map<string, Profile>> {
   let entries: string[];
   try {
     entries = await readdir(dir);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-      if (opts.required) {
-        throw new Error(`Built-in profiles directory not found: ${dir}`);
-      }
-      return new Map();
+      throw new Error(`Profiles directory not found: ${dir}`);
     }
     throw err;
   }

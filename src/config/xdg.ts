@@ -1,3 +1,4 @@
+import { mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -29,4 +30,15 @@ export function xdgPaths(): XdgPaths {
     focusCacheDir: join(cacheHome, 'focus'),
     focusStateDir: join(stateHome, 'focus'),
   };
+}
+
+export async function ensureXdgDirs(): Promise<void> {
+  const paths = xdgPaths();
+  await Promise.all([
+    mkdir(paths.focusConfigDir, { recursive: true }),
+    mkdir(join(paths.focusConfigDir, 'profiles'), { recursive: true }),
+    mkdir(paths.focusVolumesDir, { recursive: true }),
+    mkdir(paths.focusCacheDir, { recursive: true }),
+    mkdir(paths.focusStateDir, { recursive: true }),
+  ]);
 }

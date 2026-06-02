@@ -48,20 +48,15 @@ describe('built-in profile catalog', () => {
 });
 
 describe('loadProfilesFromDir', () => {
-  it('throws when required directory does not exist', async () => {
+  it('throws when directory does not exist', async () => {
     await assert.rejects(
-      () => loadProfilesFromDir('/no/such/dir', { required: true }),
+      () => loadProfilesFromDir('/no/such/dir'),
       (err: unknown) => {
         assert.ok(err instanceof Error);
         assert.ok(err.message.includes('/no/such/dir'));
         return true;
       },
     );
-  });
-
-  it('returns empty map when non-required directory does not exist', async () => {
-    const map = await loadProfilesFromDir('/no/such/dir', { required: false });
-    assert.equal(map.size, 0);
   });
 });
 
@@ -75,11 +70,6 @@ describe('loadCustomProfiles', () => {
 
   after(async () => {
     await rm(tmpBase, { recursive: true, force: true });
-  });
-
-  it('returns empty map when profiles directory does not exist', async () => {
-    const map = await loadCustomProfiles(join(tmpBase, 'no-such-dir'));
-    assert.equal(map.size, 0);
   });
 
   it('loads a valid custom profile', async () => {
@@ -213,7 +203,7 @@ describe('getProfile', () => {
 
   before(async () => {
     tmpBase = join(tmpdir(), `focus-getprofile-test-${Date.now()}`);
-    await mkdir(tmpBase, { recursive: true });
+    await mkdir(join(tmpBase, 'profiles'), { recursive: true });
   });
 
   after(async () => {
