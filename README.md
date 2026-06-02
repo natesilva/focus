@@ -2,11 +2,11 @@
 
 `focus` launches an isolated container scoped to your current working directory. Drop into a reproducible, tool-configured environment for any project without giving the container access to the rest of your filesystem.
 
-```
-$ cd ~/dev/myproject
+```shell
+$ cd ~/dev/my-project
 $ focus
-[focus] launching myproject...
-focususer@focus-d1aa5787:/work/myproject $
+[focus] /work/my-project     # now you’re in a container
+$
 ```
 
 ---
@@ -17,7 +17,7 @@ AI coding tools are powerful — and capable of making sweeping, irreversible ch
 
 The right answer is to run these tools in a container. In a container, your home directory, SSH keys, and other projects are simply not reachable. But setting up a container environment for each project is friction — so most developers skip it and accept the risk.
 
-focus makes the safe path the easy path. One command, and you're in a container. No Dockerfile, no config. Your current directory is mounted; nothing else is exposed.
+**`focus` makes the safe path the easy path.** One command, and you're in a container. No Dockerfile, no config. Your current directory is mounted; nothing else is exposed.
 
 ---
 
@@ -45,13 +45,13 @@ npm install -g .
 ## Quickstart
 
 ```sh
-cd ~/dev/myproject
+cd ~/dev/my-project
 focus
 ```
 
-No config file required. `focus` builds a container image using your global defaults and drops you into a shell. Your project is at `/work/myproject` inside the container. Persistent tool config (Claude auth, SSH keys) is mounted from `~/.local/share/focus/volumes/` and carries over between runs.
+No config file required. `focus` builds a container image using your global defaults and drops you into a shell. Your project is at `/work/my-project` inside the container. Persistent tool config (Claude auth, SSH keys) is mounted from `~/.local/share/focus/volumes/` and carries over between runs.
 
-When you exit, the container stops. Run `focus` again and it starts fresh in seconds — the image is cached.
+When you exit, the container stops. Run `focus` again and it starts fresh instantly — the image is cached.
 
 To pin a specific set of tools for a project, run `focus init` to scaffold a `.focus.yaml` and commit it.
 
