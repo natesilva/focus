@@ -6,8 +6,18 @@
 $ cd ~/dev/myproject
 $ focus
 [focus] launching myproject...
-focususer@focus-d1aa5787:/focus $
+focususer@focus-d1aa5787:/work/myproject $
 ```
+
+---
+
+## Why
+
+AI coding tools are powerful — and capable of making sweeping, irreversible changes to your filesystem. Mistakes happen. Prompt injection attacks (malicious instructions embedded in code you've pulled from GitHub) are a real and growing threat.
+
+The right answer is to run these tools in a container. In a container, your home directory, SSH keys, and other projects are simply not reachable. But setting up a container environment for each project is friction — so most developers skip it and accept the risk.
+
+focus makes the safe path the easy path. One command, and you're in a container. No Dockerfile, no config. Your current directory is mounted; nothing else is exposed.
 
 ---
 
@@ -20,6 +30,8 @@ focususer@focus-d1aa5787:/focus $
 ---
 
 ## Installation
+
+> **TBD** — distribution method not yet decided. In the meantime, clone and install from source:
 
 ```sh
 git clone https://github.com/natesilva/focus
@@ -34,11 +46,14 @@ npm install -g .
 
 ```sh
 cd ~/dev/myproject
-focus init          # scaffold a .focus.yaml
-focus               # launch the container
+focus
 ```
 
-Inside the container your project is at `/focus`. Persistent tool config (Claude auth, SSH keys, Git identity) is mounted from `~/.local/share/focus/volumes/` and survives across container runs.
+No config file required. `focus` builds a container image using your global defaults and drops you into a shell. Your project is at `/work/myproject` inside the container. Persistent tool config (Claude auth, SSH keys) is mounted from `~/.local/share/focus/volumes/` and carries over between runs.
+
+When you exit, the container stops. Run `focus` again and it starts fresh in seconds — the image is cached.
+
+To pin a specific set of tools for a project, run `focus init` to scaffold a `.focus.yaml` and commit it.
 
 ---
 
@@ -46,7 +61,7 @@ Inside the container your project is at `/focus`. Persistent tool config (Claude
 
 | Command | Description |
 |---|---|
-| `focus` | Start or attach to the container for the current directory |
+| `focus` | Start the container for the current directory |
 | `focus run` | Same as `focus` (explicit form) |
 | `focus -- <cmd> [args...]` | Run a command non-interactively; exit code is propagated |
 | `focus stop` | Stop the container for the current directory |
@@ -58,7 +73,7 @@ Inside the container your project is at `/focus`. Persistent tool config (Claude
 
 ## Per-Project Configuration
 
-A `.focus.yaml` at the project root declares the environment. Commit it to make the environment reproducible for everyone using focus.
+A `.focus.yaml` at the project root declares the environment. Commit it to make the environment reproducible for everyone using focus. It's optional — focus runs with global defaults when no project config is present.
 
 ```yaml
 # .focus.yaml
@@ -71,14 +86,18 @@ tools:
 runtime: auto          # auto | docker | apple-containers
 network: bridge        # bridge | none
 image: ubuntu:24.04    # base image (optional override)
+
+shell:
+  prompt: two-line     # two-line | inline | false
 ```
 
 | Field | Default | Description |
 |---|---|---|
-| `tools` | `[]` | Profile names to install (see catalog below) |
+| `tools` | `[]` | Tool profiles to install (see catalog below) |
 | `runtime` | `auto` | Container runtime to use |
 | `network` | `bridge` | `none` disables all networking |
 | `image` | `ubuntu:24.04` | Base image for tool installation |
+| `shell.prompt` | `two-line` | Shell prompt style; `false` to disable |
 
 ---
 
@@ -98,9 +117,9 @@ The config path respects `$XDG_CONFIG_HOME`.
 
 ---
 
-## Profile Catalog
+## Tool Profile Catalog
 
-Profiles are named tool sets. Each profile declares what to install and which persistent volume slots it needs.
+Tool profiles are named sets of packages. Each declares what to install and which directories to persist across container runs.
 
 | Profile | Installs | Persists |
 |---|---|---|
@@ -110,30 +129,33 @@ Profiles are named tool sets. Each profile declares what to install and which pe
 | `node` | Node.js 24, pnpm | — |
 | `python` | Python 3, uv | — |
 | `rust` | rustc, cargo | — |
-| `claude-code` | Node.js 24, Claude Code CLI | `~/.claude` |
+| `claude-code` | Claude Code CLI | `~/.claude` |
+
+`claude-code` depends on `node` — you don't need to list both; focus resolves prerequisites automatically.
 
 ---
 
-## Custom Profiles
+## Custom Tool Profiles
 
-Define custom profiles in `~/.config/focus/profiles/<name>.yaml`:
+Define custom tool profiles in `~/.config/focus/profiles/<name>.yaml`:
 
 ```yaml
 # ~/.config/focus/profiles/openspec.yaml
+prerequisites:
+  - node
 install:
   - npm install -g @fission-ai/openspec@latest
 volumes: []
 ```
 
-Then reference the profile by name in `.focus.yaml`:
+Then reference it by name in `.focus.yaml`:
 
 ```yaml
 tools:
-  - node
   - openspec
 ```
 
-Profiles are applied in alphabetical order, so `node` always runs before `openspec`.
+The `prerequisites` field ensures required profiles are installed first. `volumes` lists directory names to mirror between `~/.local/share/focus/volumes/` and the container's home directory.
 
 ---
 
@@ -141,10 +163,9 @@ Profiles are applied in alphabetical order, so `node` always runs before `opensp
 
 | Host path | Container path | Purpose |
 |---|---|---|
-| Current directory | `/focus` | Project files |
-| `~/.local/share/focus/volumes/claude/` | `~/.claude` | Claude Code auth |
-| `~/.local/share/focus/volumes/ssh/` | `~/.ssh` | SSH keys |
-| `~/.gitconfig` (read-only) | `/etc/gitconfig` | Git identity |
+| Current directory | `/work/<dirname>` | Project files |
+| `~/.local/share/focus/volumes/claude-code/.claude/` | `~/.claude` | Claude Code auth |
+| `~/.local/share/focus/volumes/ssh/.ssh/` | `~/.ssh` | SSH keys |
 
 Volume paths respect `$XDG_DATA_HOME`.
 
@@ -154,10 +175,9 @@ Volume paths respect `$XDG_DATA_HOME`.
 
 | Path | Purpose |
 |---|---|
-| `~/.config/focus/` | Config file, custom profiles |
+| `~/.config/focus/` | Config file, custom tool profiles |
 | `~/.local/share/focus/volumes/` | Persistent tool volumes |
 | `~/.cache/focus/` | Built image layer cache (safe to delete) |
-| `~/.local/state/focus/` | Running container registry |
 
 ---
 
@@ -176,6 +196,12 @@ Podman integrates via Docker contexts — no special focus configuration needed.
 ## Examples
 
 See [`examples/`](examples/) for sample `.focus.yaml` files for common project types.
+
+---
+
+## Documentation
+
+Full documentation is in [`docs/`](docs/).
 
 ---
 
