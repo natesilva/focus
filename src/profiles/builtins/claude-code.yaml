@@ -1,7 +1,6 @@
 prerequisites:
   - node
 install:
-  # No apt cache cleanup needed — npm does not use apt.
   - npm install -g @anthropic-ai/claude-code
 volumes:
   - .claude

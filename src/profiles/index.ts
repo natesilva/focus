@@ -31,15 +31,13 @@ export async function getProfile(name: string, configDir: string): Promise<Profi
 export async function resolveProfiles(names: string[], configDir: string): Promise<Profile[]> {
   const map = await resolveAll(configDir);
 
-  // Validate all explicitly requested names exist up front.
   for (const name of names) {
     lookupProfile(name, map);
   }
 
   const requested = new Set(names);
 
-  // BFS transitive closure: expand to include all transitive prerequisites.
-  // Missing prerequisites are caught here at expansion time.
+  // BFS transitive closure.
   const resolved = new Set<string>(names);
   const queue: string[] = [...names];
   while (queue.length > 0) {
@@ -59,8 +57,7 @@ export async function resolveProfiles(names: string[], configDir: string): Promi
     }
   }
 
-  // Kahn's algorithm: topological sort over the resolved set.
-  // Build in-degree counts and a reverse adjacency list (prereq → its dependents).
+  // Kahn's algorithm: topological sort.
   const inDegree = new Map<string, number>();
   const dependents = new Map<string, string[]>();
   for (const name of resolved) {
@@ -90,11 +87,9 @@ export async function resolveProfiles(names: string[], configDir: string): Promi
       inDegree.set(dep, deg);
       if (deg === 0) newly.push(dep);
     }
-    // Sort newly unblocked nodes before adding to frontier.
     frontier.push(...newly.sort());
   }
 
-  // Any remaining nodes with in-degree > 0 form a cycle.
   if (sorted.length !== resolved.size) {
     const cycleNodeSet = new Set([...resolved].filter(n => !sorted.includes(n)));
     // Walk the cycle to reconstruct the directed path for the error message.
@@ -109,7 +104,6 @@ export async function resolveProfiles(names: string[], configDir: string): Promi
         inPath.add(next);
         cur = next;
       } else {
-        // Close the loop back to the entry point.
         const loopBack = map.get(cur)!.prerequisites.find(p => cycleNodeSet.has(p));
         if (loopBack !== undefined) cyclePath.push(loopBack);
         break;

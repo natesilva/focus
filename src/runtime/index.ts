@@ -14,7 +14,6 @@ export async function selectRuntime(runtime: FocusConfig['runtime']): Promise<Ru
   if (runtime === 'apple-containers') {
     return new AppleContainersRuntimeAdapter();
   }
-  // 'auto': prefer Apple Containers on macOS if the binary is present
   if (process.platform === 'darwin') {
     try {
       await execFileAsync('container', ['--version']);
