@@ -14,9 +14,8 @@ export function computeTag(profiles: Profile[], baseImage: string): string {
 }
 
 export function generateDockerfile(profiles: Profile[], baseImage: string): string {
-  const sorted = [...profiles].sort((a, b) => a.name.localeCompare(b.name));
   const lines = [`FROM ${baseImage}`];
-  for (const profile of sorted) {
+  for (const profile of profiles) {
     lines.push(`RUN ${profile.install.join(' && ')}`);
   }
   return lines.join('\n') + '\n';

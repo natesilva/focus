@@ -60,11 +60,11 @@ describe('generateDockerfile', () => {
     assert.ok(df.includes('apt-get install -y curl && npm install -g pnpm'));
   });
 
-  it('profiles appear in alphabetical order regardless of input order', () => {
+  it('profiles appear in the order provided', () => {
     const df = generateDockerfile([ripgrep, git], 'ubuntu:24.04');
-    const gitPos = df.indexOf('apt-get install -y git');
     const rgPos = df.indexOf('apt-get install -y ripgrep');
-    assert.ok(gitPos < rgPos, 'git RUN block should come before ripgrep');
+    const gitPos = df.indexOf('apt-get install -y git');
+    assert.ok(rgPos < gitPos, 'ripgrep RUN block should come before git (input order)');
   });
 
   it('ends with a newline', () => {

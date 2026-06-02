@@ -11,6 +11,7 @@ const FileInitSchema = z.union([
 ]);
 
 const ProfileSchema = z.object({
+  prerequisites: z.array(z.string()).default([]),
   install: z.array(z.string()),
   volumes: z.array(z.string()).default([]),
   files: z.record(z.string(), FileInitSchema).default({}),
@@ -42,7 +43,7 @@ export async function loadProfilesFromDir(
     } catch (err) {
       throw new Error(`Invalid profile at ${filePath}: ${String(err)}`);
     }
-    profiles.set(name, { name, install: data.install, volumes: data.volumes, files: data.files });
+    profiles.set(name, { name, prerequisites: data.prerequisites, install: data.install, volumes: data.volumes, files: data.files });
   }
   return profiles;
 }

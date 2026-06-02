@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { loadCustomProfiles } from './custom.ts';
 import { loadBuiltinProfiles } from './catalog.ts';
 import { loadProfilesFromDir } from './loader.ts';
-import { getProfile } from './index.ts';
+import { getProfile, resolveProfiles } from './index.ts';
 
 describe('built-in profile catalog', () => {
   it('contains all expected profiles', async () => {
@@ -236,5 +236,199 @@ describe('getProfile', () => {
     );
     const profile = await getProfile('git', configDir);
     assert.deepEqual(profile.install, ['echo custom-git']);
+  });
+});
+
+describe('resolveProfiles', () => {
+  let tmpBase: string;
+
+  before(async () => {
+    tmpBase = join(tmpdir(), `focus-resolve-test-${Date.now()}`);
+    await mkdir(join(tmpBase, 'profiles'), { recursive: true });
+  });
+
+  after(async () => {
+    await rm(tmpBase, { recursive: true, force: true });
+  });
+
+  async function makeConfigDir(name: string, profiles: Record<string, string>): Promise<string> {
+    const dir = join(tmpBase, name);
+    await mkdir(join(dir, 'profiles'), { recursive: true });
+    for (const [profileName, yaml] of Object.entries(profiles)) {
+      await writeFile(join(dir, 'profiles', `${profileName}.yaml`), yaml);
+    }
+    return dir;
+  }
+
+  it('direct prerequisite is auto-injected and appears before the dependent', async () => {
+    const configDir = await makeConfigDir('direct-prereq', {
+      base: 'install:\n  - echo base\n',
+      tool: 'prerequisites:\n  - base\ninstall:\n  - echo tool\n',
+    });
+    const profiles = await resolveProfiles(['tool'], configDir);
+    const names = profiles.map(p => p.name);
+    assert.ok(names.includes('base'), 'base should be in the resolved set');
+    assert.ok(names.indexOf('base') < names.indexOf('tool'), 'base must come before tool');
+  });
+
+  it('transitive prerequisites are resolved (A → B → C)', async () => {
+    const configDir = await makeConfigDir('transitive', {
+      c: 'install:\n  - echo c\n',
+      b: 'prerequisites:\n  - c\ninstall:\n  - echo b\n',
+      a: 'prerequisites:\n  - b\ninstall:\n  - echo a\n',
+    });
+    const profiles = await resolveProfiles(['a'], configDir);
+    const names = profiles.map(p => p.name);
+    assert.deepEqual([...names].sort(), ['a', 'b', 'c'], 'all three should be resolved');
+    assert.ok(names.indexOf('c') < names.indexOf('b'), 'c before b');
+    assert.ok(names.indexOf('b') < names.indexOf('a'), 'b before a');
+  });
+
+  it('shared prerequisite appears only once', async () => {
+    const configDir = await makeConfigDir('dedup', {
+      shared: 'install:\n  - echo shared\n',
+      x: 'prerequisites:\n  - shared\ninstall:\n  - echo x\n',
+      y: 'prerequisites:\n  - shared\ninstall:\n  - echo y\n',
+    });
+    const profiles = await resolveProfiles(['x', 'y'], configDir);
+    const names = profiles.map(p => p.name);
+    assert.equal(names.filter(n => n === 'shared').length, 1, 'shared appears exactly once');
+  });
+
+  it('explicitly listed prerequisite is not duplicated', async () => {
+    const profiles = await resolveProfiles(['claude-code', 'node'], tmpBase);
+    const names = profiles.map(p => p.name);
+    assert.equal(names.filter(n => n === 'node').length, 1, 'node appears exactly once');
+  });
+
+  it('throws for a missing prerequisite, naming both profiles', async () => {
+    const configDir = await makeConfigDir('missing-prereq', {
+      broken: 'prerequisites:\n  - nonexistent\ninstall:\n  - echo broken\n',
+    });
+    await assert.rejects(
+      () => resolveProfiles(['broken'], configDir),
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.ok(err.message.includes('broken'), 'error should mention declaring profile');
+        assert.ok(err.message.includes('nonexistent'), 'error should mention missing prerequisite');
+        return true;
+      },
+    );
+  });
+
+  it('throws for a direct circular prerequisite chain, showing the path', async () => {
+    const configDir = await makeConfigDir('cycle-direct', {
+      alpha: 'prerequisites:\n  - beta\ninstall:\n  - echo alpha\n',
+      beta: 'prerequisites:\n  - alpha\ninstall:\n  - echo beta\n',
+    });
+    await assert.rejects(
+      () => resolveProfiles(['alpha'], configDir),
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.ok(err.message.toLowerCase().includes('circular'), 'error should mention circular dependency');
+        assert.ok(err.message.includes('→'), 'error should show the directed path');
+        return true;
+      },
+    );
+  });
+
+  it('throws for an indirect circular prerequisite chain (A → B → C → A)', async () => {
+    const configDir = await makeConfigDir('cycle-indirect', {
+      p: 'prerequisites:\n  - q\ninstall:\n  - echo p\n',
+      q: 'prerequisites:\n  - r\ninstall:\n  - echo q\n',
+      r: 'prerequisites:\n  - p\ninstall:\n  - echo r\n',
+    });
+    await assert.rejects(
+      () => resolveProfiles(['p'], configDir),
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.ok(err.message.toLowerCase().includes('circular'), 'error should mention circular dependency');
+        assert.ok(err.message.includes('→'), 'error should show the directed path');
+        return true;
+      },
+    );
+  });
+
+  it('independent profiles are returned in alphabetical order', async () => {
+    const profiles = await resolveProfiles(['ripgrep', 'git'], tmpBase);
+    const names = profiles.map(p => p.name);
+    assert.ok(names.indexOf('git') < names.indexOf('ripgrep'), 'git before ripgrep (alphabetical)');
+  });
+
+  it('input order does not affect the resolved order', async () => {
+    const [a, b] = await Promise.all([
+      resolveProfiles(['claude-code', 'git'], tmpBase),
+      resolveProfiles(['git', 'claude-code'], tmpBase),
+    ]);
+    assert.deepEqual(a.map(p => p.name), b.map(p => p.name), 'order should be identical regardless of input order');
+  });
+
+  it('prints an informational note to stderr for auto-injected prerequisites', async () => {
+    const configDir = await makeConfigDir('stderr-note', {
+      base: 'install:\n  - echo base\n',
+      tool: 'prerequisites:\n  - base\ninstall:\n  - echo tool\n',
+    });
+    const lines: string[] = [];
+    const origWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string | Uint8Array) => {
+      if (typeof chunk === 'string') lines.push(chunk);
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      await resolveProfiles(['tool'], configDir);
+    } finally {
+      process.stderr.write = origWrite;
+    }
+    assert.ok(lines.some(l => l.includes('note: adding "base" (required by tool)')));
+  });
+
+  it('does not print an informational note when prerequisite is explicitly listed', async () => {
+    const lines: string[] = [];
+    const origWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string | Uint8Array) => {
+      if (typeof chunk === 'string') lines.push(chunk);
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      await resolveProfiles(['claude-code', 'node'], tmpBase);
+    } finally {
+      process.stderr.write = origWrite;
+    }
+    assert.ok(!lines.some(l => l.includes('"node"')), 'no note should be printed for explicitly listed node');
+  });
+
+  it('prints the informational note exactly once when multiple profiles share a prerequisite', async () => {
+    const configDir = await makeConfigDir('stderr-dedup', {
+      shared: 'install:\n  - echo shared\n',
+      x: 'prerequisites:\n  - shared\ninstall:\n  - echo x\n',
+      y: 'prerequisites:\n  - shared\ninstall:\n  - echo y\n',
+    });
+    const lines: string[] = [];
+    const origWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string | Uint8Array) => {
+      if (typeof chunk === 'string') lines.push(chunk);
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      await resolveProfiles(['x', 'y'], configDir);
+    } finally {
+      process.stderr.write = origWrite;
+    }
+    assert.equal(lines.filter(l => l.includes('"shared"')).length, 1, 'note for shared should appear exactly once');
+  });
+
+  it('claude-code built-in declares node as a prerequisite and has no Node.js install steps', async () => {
+    const profile = await getProfile('claude-code', tmpBase);
+    assert.ok(profile.prerequisites.includes('node'), 'claude-code should declare node as prerequisite');
+    const installScript = profile.install.join('\n');
+    assert.ok(!installScript.includes('nodejs'), 'claude-code install should not install nodejs');
+    assert.ok(!installScript.includes('nodesource'), 'claude-code install should not reference nodesource');
+  });
+
+  it('resolveProfiles(["claude-code"]) auto-injects node before claude-code', async () => {
+    const profiles = await resolveProfiles(['claude-code'], tmpBase);
+    const names = profiles.map(p => p.name);
+    assert.ok(names.includes('node'), 'node should be auto-injected');
+    assert.ok(names.indexOf('node') < names.indexOf('claude-code'), 'node must appear before claude-code');
   });
 });
