@@ -61,14 +61,6 @@ $(docker context inspect --format '{{.Endpoints.docker.Host}}' | sed 's|unix://|
 
 ---
 
-## Prerequisites key for tool profiles
-
-**Context:** Some tools depend on others being installed first. For example, the `claude-code` profile requires Node.js to be present before its install script can run, but there is currently no way to declare this dependency — the install order is implicit and fragile.
-
-**Suggested approach when revisiting:** Add an optional `prerequisites` list to the tool profile schema. Before installing a tool, the image builder resolves the full prerequisite graph and installs dependencies in topological order. If a declared prerequisite is not in the active tool set, the builder adds it automatically (or warns, depending on desired behavior). This replaces implicit ordering assumptions with an explicit, checkable contract.
-
----
-
 ## Volume mount scoping
 
 **Context:** All persistent tool volumes currently use the same sharing model: a named volume under `~/.local/share/focus/volumes/` that is shared across every `focus` instance regardless of working directory. This is appropriate for truly global state (e.g. Claude Code auth and configuration, which you want identical everywhere), but it is wrong for state that should vary per project, and it is the wrong mechanism entirely for resources that need to be readable by the host (e.g. SSH keys, Git config).

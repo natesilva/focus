@@ -40,6 +40,18 @@ Features that originated in `future-features.md` and have since been implemented
 
 ---
 
+## Prerequisites key for tool profiles
+
+**Implemented:** 2026-06-02
+
+**Context:** Some tools depend on others being installed first. For example, the `claude-code` profile requires Node.js to be present before its install script can run, but there is currently no way to declare this dependency — the install order is implicit and fragile.
+
+**Suggested approach when revisiting:** Add an optional `prerequisites` list to the tool profile schema. Before installing a tool, the image builder resolves the full prerequisite graph and installs dependencies in topological order. If a declared prerequisite is not in the active tool set, the builder adds it automatically (or warns, depending on desired behavior). This replaces implicit ordering assumptions with an explicit, checkable contract.
+
+**What was built:** `Profile` gained a `prerequisites: string[]` field. `resolveProfiles` was rewritten to (1) compute the transitive closure of all prerequisites via BFS, auto-injecting missing ones and printing `note: adding "X" (required by Y)` to stderr, (2) detect missing prerequisites and circular chains with descriptive errors that include the full directed cycle path, and (3) return profiles in topological order using Kahn's algorithm with alphabetical tie-breaking. `generateDockerfile` was simplified to honour input order rather than sorting internally (sorting responsibility moved to the caller). `claude-code.yaml` was refactored to declare `prerequisites: [node]` and delegate Node.js installation to the `node` profile.
+
+---
+
 ## Mount CWD at `/work/<dirname>` for worktree support and per-project harness isolation
 
 **Implemented:** 2026-06-02
