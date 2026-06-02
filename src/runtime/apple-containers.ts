@@ -1,7 +1,7 @@
 import type { ExecFileException } from 'node:child_process';
 import { execFile, spawn } from 'node:child_process';
 import { writeFileSync, rmSync, mkdtempSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 import type { RuntimeAdapter, StartOptions, InspectResult } from './adapter.ts';
@@ -40,7 +40,7 @@ export function parseContainerList(json: string): Array<{ name: string; cwd: str
 
 export class AppleContainersRuntimeAdapter implements RuntimeAdapter {
   async start(opts: StartOptions): Promise<number> {
-    const { name, image, cwd, uid, configHash, entrypointScript, command, mounts, env } = opts;
+    const { name, image, cwd, uid, configHash, entrypointScript, workspaceVolume, command, mounts, env } = opts;
     const interactive = command === undefined;
     const ttyFlags = interactive && process.stdin.isTTY
       ? ['--interactive', '--tty']
@@ -59,7 +59,8 @@ export class AppleContainersRuntimeAdapter implements RuntimeAdapter {
       '--label', `focus.cwd=${cwd}`,
       '--label', `focus.config-hash=${configHash}`,
       ...ttyFlags,
-      '-v', `${cwd}:/focus`,
+      '-v', `${workspaceVolume}:/focus`,
+      '-v', `${cwd}:/focus/${basename(cwd)}`,
       ...volumeFlags,
       '-e', `FOCUS_UID=${uid}`,
       ...envFlags,
@@ -81,11 +82,11 @@ export class AppleContainersRuntimeAdapter implements RuntimeAdapter {
     });
   }
 
-  async exec(name: string, uid: number, command: string[] | undefined, tty: boolean, env?: Record<string, string>): Promise<number> {
+  async exec(name: string, uid: number, command: string[] | undefined, tty: boolean, env: Record<string, string> | undefined, workdir: string): Promise<number> {
     const cmd = command ?? ['/bin/bash'];
     const ttyFlags = tty ? ['--interactive', '--tty'] : ['--interactive'];
     const envFlags = env ? Object.entries(env).flatMap(([k, v]) => ['-e', `${k}=${v}`]) : [];
-    const args = ['exec', ...ttyFlags, '--user', String(uid), '--workdir', '/focus', ...envFlags, name, ...cmd];
+    const args = ['exec', ...ttyFlags, '--user', String(uid), '--workdir', workdir, ...envFlags, name, ...cmd];
 
     return new Promise((resolve, reject) => {
       const child = spawn('container', args, { stdio: 'inherit' });

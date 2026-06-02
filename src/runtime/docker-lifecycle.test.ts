@@ -8,43 +8,36 @@ import {
 
 describe('buildExecArgs', () => {
   it('uses -it when tty is true', () => {
-    const args = buildExecArgs('focus-abc', 1000, undefined, true);
+    const args = buildExecArgs('focus-abc', 1000, undefined, true, undefined, '/focus/api-server');
     assert.ok(args.includes('-it'));
     assert.ok(!args.includes('-i') || args.indexOf('-it') === args.indexOf('-i'));
   });
 
   it('uses -i (no -t) when tty is false', () => {
-    const args = buildExecArgs('focus-abc', 1000, ['ls'], false);
+    const args = buildExecArgs('focus-abc', 1000, ['ls'], false, undefined, '/focus/api-server');
     assert.ok(args.includes('-i'));
     assert.ok(!args.includes('-it'));
   });
 
   it('defaults to /bin/bash when command is undefined', () => {
-    const args = buildExecArgs('focus-abc', 1000, undefined, false);
+    const args = buildExecArgs('focus-abc', 1000, undefined, false, undefined, '/focus/api-server');
     assert.ok(args.includes('/bin/bash'));
   });
 
   it('passes --user <uid>', () => {
-    const args = buildExecArgs('focus-abc', 1234, ['echo', 'hi'], false);
+    const args = buildExecArgs('focus-abc', 1234, ['echo', 'hi'], false, undefined, '/focus/api-server');
     const idx = args.indexOf('--user');
     assert.ok(idx !== -1);
     assert.equal(args[idx + 1], '1234');
   });
 
-  it('includes --workdir /focus', () => {
-    const args = buildExecArgs('focus-abc', 1000, ['echo'], false);
-    const idx = args.indexOf('--workdir');
-    assert.ok(idx !== -1);
-    assert.equal(args[idx + 1], '/focus');
-  });
-
   it('includes the container name', () => {
-    const args = buildExecArgs('focus-abc', 1000, ['echo'], false);
+    const args = buildExecArgs('focus-abc', 1000, ['echo'], false, undefined, '/focus/api-server');
     assert.ok(args.includes('focus-abc'));
   });
 
   it('passes command args after the container name', () => {
-    const args = buildExecArgs('focus-abc', 1000, ['echo', 'hello'], false);
+    const args = buildExecArgs('focus-abc', 1000, ['echo', 'hello'], false, undefined, '/focus/api-server');
     const nameIdx = args.indexOf('focus-abc');
     assert.equal(args[nameIdx + 1], 'echo');
     assert.equal(args[nameIdx + 2], 'hello');

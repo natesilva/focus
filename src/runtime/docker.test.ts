@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildVolumeFlags, buildEnvFlags } from './docker.ts';
+import { buildVolumeFlags, buildEnvFlags, buildExecArgs } from './docker.ts';
 
 describe('docker volume flag generation', () => {
   it('appends :ro for read-only mounts', () => {
@@ -47,5 +47,31 @@ describe('buildEnvFlags', () => {
 
   it('returns empty array for empty object', () => {
     assert.deepEqual(buildEnvFlags({}), []);
+  });
+});
+
+describe('buildExecArgs', () => {
+  it('uses /focus/<dirname> as workdir', () => {
+    const args = buildExecArgs('focus-abc', 1000, undefined, false, undefined, '/focus/api-server');
+    const wdIdx = args.indexOf('--workdir');
+    assert.ok(wdIdx !== -1, '--workdir flag should be present');
+    assert.equal(args[wdIdx + 1], '/focus/api-server');
+  });
+
+  it('uses -it flags when tty is true', () => {
+    const args = buildExecArgs('focus-abc', 1000, undefined, true, undefined, '/focus/api-server');
+    assert.ok(args.includes('-it'));
+  });
+
+  it('uses -i flag when tty is false', () => {
+    const args = buildExecArgs('focus-abc', 1000, undefined, false, undefined, '/focus/api-server');
+    assert.ok(args.includes('-i'));
+    assert.ok(!args.includes('-it'));
+  });
+
+  it('appends the provided command', () => {
+    const args = buildExecArgs('focus-abc', 1000, ['npm', 'test'], false, undefined, '/focus/api-server');
+    assert.ok(args.includes('npm'));
+    assert.ok(args.includes('test'));
   });
 });

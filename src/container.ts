@@ -24,9 +24,15 @@ export function containerName(cwd: string): string {
   return `focus-${hash}`;
 }
 
+export function workspaceVolumeName(cwd: string): string {
+  const hash = createHash('sha256').update(cwd).digest('hex').slice(0, 8);
+  return `focus-ws-${hash}`;
+}
+
 export function configHash(config: FocusConfig, profiles: Profile[]): string {
   const sorted = [...profiles].sort((a, b) => a.name.localeCompare(b.name));
   const data = JSON.stringify({
+    layoutVersion: 2,
     image: config.image,
     network: config.network,
     profiles: sorted.map(p => ({ name: p.name, install: p.install, files: p.files, volumes: p.volumes })),
@@ -79,9 +85,10 @@ export function resolvePromptStyle(prompt: NonNullable<FocusConfig['shell']>['pr
   return 'two-line';
 }
 
-export async function attachContainer(adapter: RuntimeAdapter, name: string, uid: number, command?: string[]): Promise<number> {
+export async function attachContainer(adapter: RuntimeAdapter, name: string, uid: number, cwd: string, command?: string[]): Promise<number> {
   const tty = command === undefined && process.stdin.isTTY;
-  return adapter.exec(name, uid, command, tty, TERMINAL_ENV);
+  const workdir = `/focus/${basename(cwd)}`;
+  return adapter.exec(name, uid, command, tty, TERMINAL_ENV, workdir);
 }
 
 export async function buildMounts(profiles: Profile[], xdg: XdgPaths, uid: number): Promise<MountDescriptor[]> {
@@ -108,7 +115,7 @@ export async function runContainer(cwd: string, config: FocusConfig, command?: s
   const action = resolveRunAction(existing, hash, interactive);
 
   if (action.type === 'attach') {
-    return attachContainer(adapter, name, uid, command);
+    return attachContainer(adapter, name, uid, cwd, command);
   }
   if (action.type === 'rebuild-interactive') {
     console.warn('[focus] Container is running with a different config.');
@@ -132,6 +139,7 @@ export async function runContainer(cwd: string, config: FocusConfig, command?: s
     uid,
     configHash: hash,
     entrypointScript: loadEntrypointScript(),
+    workspaceVolume: workspaceVolumeName(cwd),
     command,
     network: config.network === 'none' ? 'none' : undefined,
     mounts,

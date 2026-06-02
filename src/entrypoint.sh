@@ -32,7 +32,8 @@ if [ "$ACTUAL_HOME" != "$FOCUS_VOLUME_HOME" ] && [ -d "$FOCUS_VOLUME_HOME" ]; th
     done
 fi
 
-cd /focus
+cd "/focus/$FOCUS_PROJECT"
+git -C "/focus/$FOCUS_PROJECT" worktree prune 2>/dev/null || true
 
 if [ "${FOCUS_PROMPT_STYLE:-two-line}" != "off" ]; then
     if ! grep -q '# focus-prompt' /etc/bash.bashrc 2>/dev/null; then

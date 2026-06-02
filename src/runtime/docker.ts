@@ -1,5 +1,6 @@
 import type { ExecFileException } from 'node:child_process';
 import { execFile, spawn } from 'node:child_process';
+import { basename } from 'node:path';
 import { promisify } from 'node:util';
 import type { MountDescriptor } from '../volumes.ts';
 import type { RuntimeAdapter, StartOptions, InspectResult } from './adapter.ts';
@@ -20,10 +21,10 @@ export function buildEnvFlags(env: Record<string, string> | undefined): string[]
   return Object.entries(env).flatMap(([k, v]) => ['-e', `${k}=${v}`]);
 }
 
-export function buildExecArgs(name: string, uid: number, command: string[] | undefined, tty: boolean, env?: Record<string, string>): string[] {
+export function buildExecArgs(name: string, uid: number, command: string[] | undefined, tty: boolean, env: Record<string, string> | undefined, workdir: string): string[] {
   const cmd = command ?? ['/bin/bash'];
   const ttyFlags = tty ? ['-it'] : ['-i'];
-  return ['exec', '--user', String(uid), '--workdir', '/focus', ...ttyFlags, ...buildEnvFlags(env), name, ...cmd];
+  return ['exec', '--user', String(uid), '--workdir', workdir, ...ttyFlags, ...buildEnvFlags(env), name, ...cmd];
 }
 
 export function parseInspectOutput(json: string): InspectResult {
@@ -48,7 +49,7 @@ export function parseContainerList(names: string[], inspectJson: string): Array<
 }
 
 export async function start(opts: StartOptions): Promise<number> {
-  const { name, image, cwd, uid, configHash, entrypointScript, command, network, mounts, env } = opts;
+  const { name, image, cwd, uid, configHash, entrypointScript, workspaceVolume, command, network, mounts, env } = opts;
   const interactive = command === undefined;
   const ttyFlags = interactive && process.stdin.isTTY ? ['-it'] : ['-i'];
   const networkFlags = network === 'none' ? ['--network', 'none'] : [];
@@ -64,7 +65,8 @@ export async function start(opts: StartOptions): Promise<number> {
     '--label', `focus.config-hash=${configHash}`,
     ...ttyFlags,
     ...networkFlags,
-    '-v', `${cwd}:/focus`,
+    '-v', `${workspaceVolume}:/focus`,
+    '-v', `${cwd}:/focus/${basename(cwd)}`,
     ...volumeFlags,
     '-e', `FOCUS_UID=${uid}`,
     ...buildEnvFlags(env),
@@ -86,8 +88,8 @@ export async function start(opts: StartOptions): Promise<number> {
   });
 }
 
-export async function exec(name: string, uid: number, command: string[] | undefined, tty: boolean, env?: Record<string, string>): Promise<number> {
-  const args = buildExecArgs(name, uid, command, tty, env);
+export async function exec(name: string, uid: number, command: string[] | undefined, tty: boolean, env: Record<string, string> | undefined, workdir: string): Promise<number> {
+  const args = buildExecArgs(name, uid, command, tty, env, workdir);
   return new Promise((resolve, reject) => {
     const child = spawn('docker', args, { stdio: 'inherit' });
     child.on('error', (err: NodeJS.ErrnoException) => {
@@ -141,7 +143,7 @@ export async function stop(name: string): Promise<{ stopped: boolean }> {
 
 export class DockerRuntimeAdapter implements RuntimeAdapter {
   start(opts: StartOptions): Promise<number> { return start(opts); }
-  exec(name: string, uid: number, command: string[] | undefined, tty: boolean, env?: Record<string, string>): Promise<number> { return exec(name, uid, command, tty, env); }
+  exec(name: string, uid: number, command: string[] | undefined, tty: boolean, env: Record<string, string> | undefined, workdir: string): Promise<number> { return exec(name, uid, command, tty, env, workdir); }
   inspect(name: string): Promise<InspectResult> { return inspect(name); }
   stop(name: string): Promise<{ stopped: boolean }> { return stop(name); }
   listFocusContainers(): Promise<Array<{ name: string; cwd: string }>> { return listFocusContainers(); }

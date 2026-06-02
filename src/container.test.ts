@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildMounts, configHash, containerName, resolvePromptStyle, resolveRunAction } from './container.ts';
+import { buildMounts, configHash, containerName, workspaceVolumeName, resolvePromptStyle, resolveRunAction } from './container.ts';
 import { loadBuiltinProfiles } from './profiles/catalog.ts';
 import type { XdgPaths } from './config/xdg.ts';
 import type { FocusConfig } from './config/resolver.ts';
@@ -33,6 +33,29 @@ describe('containerName', () => {
 
   it('name starts with focus-', () => {
     assert.match(containerName('/any/path'), /^focus-[0-9a-f]{8}$/);
+  });
+});
+
+describe('workspaceVolumeName', () => {
+  it('same directory yields same volume name', () => {
+    assert.equal(workspaceVolumeName('/home/user/project'), workspaceVolumeName('/home/user/project'));
+  });
+
+  it('different directories yield different volume names', () => {
+    assert.notEqual(workspaceVolumeName('/home/user/a'), workspaceVolumeName('/home/user/b'));
+  });
+
+  it('volume name starts with focus-ws-', () => {
+    assert.match(workspaceVolumeName('/any/path'), /^focus-ws-[0-9a-f]{8}$/);
+  });
+
+  it('volume name uses same hash as container name', () => {
+    const cwd = '/home/user/my-project';
+    const container = containerName(cwd);
+    const volume = workspaceVolumeName(cwd);
+    const containerHash = container.replace('focus-', '');
+    const volumeHash = volume.replace('focus-ws-', '');
+    assert.equal(containerHash, volumeHash);
   });
 });
 
