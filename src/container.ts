@@ -32,7 +32,7 @@ export function workspaceVolumeName(cwd: string): string {
 export function configHash(config: FocusConfig, profiles: Profile[]): string {
   const sorted = [...profiles].sort((a, b) => a.name.localeCompare(b.name));
   const data = JSON.stringify({
-    layoutVersion: 2,
+    layoutVersion: 3,
     image: config.image,
     network: config.network,
     profiles: sorted.map(p => ({ name: p.name, install: p.install, files: p.files, volumes: p.volumes })),
@@ -87,7 +87,7 @@ export function resolvePromptStyle(prompt: NonNullable<FocusConfig['shell']>['pr
 
 export async function attachContainer(adapter: RuntimeAdapter, name: string, uid: number, cwd: string, command?: string[]): Promise<number> {
   const tty = command === undefined && process.stdin.isTTY;
-  const workdir = `/focus/${basename(cwd)}`;
+  const workdir = `/work/${basename(cwd)}`;
   return adapter.exec(name, uid, command, tty, TERMINAL_ENV, workdir);
 }
 

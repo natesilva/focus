@@ -51,26 +51,26 @@ describe('buildEnvFlags', () => {
 });
 
 describe('buildExecArgs', () => {
-  it('uses /focus/<dirname> as workdir', () => {
-    const args = buildExecArgs('focus-abc', 1000, undefined, false, undefined, '/focus/api-server');
+  it('uses /work/<dirname> as workdir', () => {
+    const args = buildExecArgs('focus-abc', 1000, undefined, false, undefined, '/work/api-server');
     const wdIdx = args.indexOf('--workdir');
     assert.ok(wdIdx !== -1, '--workdir flag should be present');
-    assert.equal(args[wdIdx + 1], '/focus/api-server');
+    assert.equal(args[wdIdx + 1], '/work/api-server');
   });
 
   it('uses -it flags when tty is true', () => {
-    const args = buildExecArgs('focus-abc', 1000, undefined, true, undefined, '/focus/api-server');
+    const args = buildExecArgs('focus-abc', 1000, undefined, true, undefined, '/work/api-server');
     assert.ok(args.includes('-it'));
   });
 
   it('uses -i flag when tty is false', () => {
-    const args = buildExecArgs('focus-abc', 1000, undefined, false, undefined, '/focus/api-server');
+    const args = buildExecArgs('focus-abc', 1000, undefined, false, undefined, '/work/api-server');
     assert.ok(args.includes('-i'));
     assert.ok(!args.includes('-it'));
   });
 
   it('appends the provided command', () => {
-    const args = buildExecArgs('focus-abc', 1000, ['npm', 'test'], false, undefined, '/focus/api-server');
+    const args = buildExecArgs('focus-abc', 1000, ['npm', 'test'], false, undefined, '/work/api-server');
     assert.ok(args.includes('npm'));
     assert.ok(args.includes('test'));
   });
