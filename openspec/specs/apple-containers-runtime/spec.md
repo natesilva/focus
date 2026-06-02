@@ -34,11 +34,11 @@ The Apple Containers runtime adapter SHALL attach to a running container using `
 
 #### Scenario: Exec with TTY
 - **WHEN** the adapter is asked to exec into a container interactively
-- **THEN** it runs `container exec --interactive --tty --user <uid> --workdir /focus <name> <cmd>`
+- **THEN** it runs `container exec --interactive --tty --user <uid> --workdir /work/<dirname> <name> <cmd>`
 
 #### Scenario: Exec without TTY
 - **WHEN** the adapter is asked to exec into a container non-interactively
-- **THEN** it runs `container exec --interactive --user <uid> --workdir /focus <name> <cmd>` (no `--tty`)
+- **THEN** it runs `container exec --interactive --user <uid> --workdir /work/<dirname> <name> <cmd>` (no `--tty`)
 
 ### Requirement: Inspect container status via Apple Containers
 The Apple Containers runtime adapter SHALL determine whether a named container is running and return its labels.

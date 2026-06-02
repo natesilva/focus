@@ -6,7 +6,7 @@
 
 ## Key Design Decisions
 
-- The current directory is mounted at `/focus` inside the container (not `/workspace` — that name is overloaded in monorepo tooling).
+- The current directory is mounted at `/work/<dirname>` inside the container, with a per-project workspace volume at `/work`. (`/workspace` was rejected — overloaded in monorepo tooling; `/focus` was the previous choice but caused prompt redundancy.)
 - Persistent tool config (SSH keys, Claude auth, etc.) lives in XDG data volumes (`~/.local/share/focus/volumes/`), not inside the project directory.
 - Container runs as a non-root user whose UID matches the host user to avoid bind-mount permission issues on Linux.
 - Two runtime backends: Docker-compatible (default, uses active Docker context) and Apple Containers (preferred on macOS when available).

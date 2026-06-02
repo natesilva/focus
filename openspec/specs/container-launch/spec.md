@@ -6,20 +6,20 @@ Defines the behavior for launching containers, including directory mounting, use
 
 ## Requirements
 
-### Requirement: Current directory mounted at /focus/<dirname>
-The container SHALL have the current working directory bind-mounted at `/focus/<dirname>` inside the container, where `<dirname>` is the basename of the resolved working directory path. A per-project named volume (`focus-ws-<hash8>`) SHALL be mounted at `/focus` first, and the project bind-mount SHALL be layered on top.
+### Requirement: Current directory mounted at /work/<dirname>
+The container SHALL have the current working directory bind-mounted at `/work/<dirname>` inside the container, where `<dirname>` is the basename of the resolved working directory path. A per-project named volume (`focus-ws-<hash8>`) SHALL be mounted at `/work` first, and the project bind-mount SHALL be layered on top.
 
 #### Scenario: Mount present at launch
 - **WHEN** a container is launched for `~/dev/api-server`
-- **THEN** the host directory is accessible inside the container at `/focus/api-server`
+- **THEN** the host directory is accessible inside the container at `/work/api-server`
 
 #### Scenario: Named volume present at launch
 - **WHEN** a container is launched for any project
-- **THEN** the named volume `focus-ws-<hash8>` is mounted at `/focus` in the container
+- **THEN** the named volume `focus-ws-<hash8>` is mounted at `/work` in the container
 
 #### Scenario: Workspace volume declared before project bind-mount
 - **WHEN** the container runtime arguments are assembled
-- **THEN** the `-v focus-ws-<hash8>:/focus` argument appears before the `-v <cwd>:/focus/<dirname>` argument
+- **THEN** the `-v focus-ws-<hash8>:/work` argument appears before the `-v <cwd>:/work/<dirname>` argument
 
 ### Requirement: Non-root user with matching host UID
 The container SHALL run as a non-root user whose numeric UID matches the host user's UID.
@@ -88,19 +88,19 @@ The container network mode SHALL be taken from `FocusConfig.network`.
 - **WHEN** `FocusConfig.network` is `"none"`
 - **THEN** the container is launched with `--network none`
 
-### Requirement: Working directory set to /focus/<dirname> for exec and shell
-The container exec invocation SHALL set the working directory to `/focus/<dirname>` (where `<dirname>` is the basename of the project path), both for the initial shell launched by the entrypoint and for subsequent `docker exec` / `container exec` calls via `attachContainer`.
+### Requirement: Working directory set to /work/<dirname> for exec and shell
+The container exec invocation SHALL set the working directory to `/work/<dirname>` (where `<dirname>` is the basename of the project path), both for the initial shell launched by the entrypoint and for subsequent `docker exec` / `container exec` calls via `attachContainer`.
 
 #### Scenario: Shell starts in project directory
 - **WHEN** `focus shell` is run
-- **THEN** the user's shell opens with the current directory set to `/focus/<dirname>` (e.g. `/focus/api-server`)
+- **THEN** the user's shell opens with the current directory set to `/work/<dirname>` (e.g. `/work/api-server`)
 
 #### Scenario: Exec command runs in project directory
 - **WHEN** `focus -- <cmd>` is used to run a command non-interactively
-- **THEN** the command executes with its working directory set to `/focus/<dirname>`
+- **THEN** the command executes with its working directory set to `/work/<dirname>`
 
 ### Requirement: Persistent volume mounts included at launch
-The container launch invocation SHALL include bind-mount arguments for all resolved volume mounts returned by the volume manager, in addition to the workspace volume and `/focus/<dirname>` project bind-mount.
+The container launch invocation SHALL include bind-mount arguments for all resolved volume mounts returned by the volume manager, in addition to the workspace volume and `/work/<dirname>` project bind-mount.
 
 #### Scenario: Volume mounts passed to runtime
 - **WHEN** a container is launched and the volume manager returns one or more mount descriptors
@@ -125,8 +125,12 @@ The container SHALL be started with Docker labels `focus.cwd` (absolute working 
 The `configHash` function SHALL include a layout version constant in its input so that containers built with an incompatible mount layout are detected as stale and rebuilt.
 
 #### Scenario: Old-layout containers rebuilt on upgrade
-- **WHEN** a container was built before the subpath mount layout was introduced
+- **WHEN** a container was built with a previous layout version (e.g. before the subpath mount, or with the `/focus` mount root)
 - **THEN** its stored config hash does not match the hash computed by the new code, causing a rebuild on next `focus shell`
+
+#### Scenario: /focus-mounted containers detected as stale
+- **WHEN** a container was built with the `/focus` workspace root (layout version 2)
+- **THEN** its stored config hash does not match the hash computed with layout version 3, causing a stale-container prompt on next `focus` invocation
 
 ### Requirement: Attach replaces launch when container is already running
 The `runContainer` function SHALL check whether a container with the current name is already running before launching. If a running container exists and its config hash matches, the function SHALL attach via the adapter's `exec` method instead of launching a new container. The adapter is resolved via `selectRuntime(config.runtime)` at the start of `runContainer`.
