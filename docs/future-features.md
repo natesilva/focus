@@ -69,14 +69,6 @@ $(docker context inspect --format '{{.Endpoints.docker.Host}}' | sed 's|unix://|
 
 ---
 
-## Pre-create XDG config directory tree on first run
-
-**Context:** `~/.config/focus/` and its subdirectories (e.g. the directory for custom tool profiles) are not created during installation or first run. Users who want to add a custom tool profile must manually create the directory tree before placing a `.yaml` file there.
-
-**Suggested approach when revisiting:** On startup (or during a dedicated init step), ensure the full XDG directory tree exists: `~/.config/focus/`, `~/.local/share/focus/volumes/`, `~/.cache/focus/`, and `~/.local/state/focus/`. Use `fs.mkdir` with `{ recursive: true }` so the call is idempotent and safe to run on every invocation.
-
----
-
 ## Volume mount scoping
 
 **Context:** All persistent tool volumes currently use the same sharing model: a named volume under `~/.local/share/focus/volumes/` that is shared across every `focus` instance regardless of working directory. This is appropriate for truly global state (e.g. Claude Code auth and configuration, which you want identical everywhere), but it is wrong for state that should vary per project, and it is the wrong mechanism entirely for resources that need to be readable by the host (e.g. SSH keys, Git config).

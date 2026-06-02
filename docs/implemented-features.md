@@ -28,6 +28,18 @@ Features that originated in `future-features.md` and have since been implemented
 
 ---
 
+## Pre-create XDG config directory tree on first run
+
+**Implemented:** 2026-06-02
+
+**Context:** `~/.config/focus/` and its subdirectories (e.g. the directory for custom tool profiles) are not created during installation or first run. Users who want to add a custom tool profile must manually create the directory tree before placing a `.yaml` file there.
+
+**Suggested approach when revisiting:** On startup (or during a dedicated init step), ensure the full XDG directory tree exists: `~/.config/focus/`, `~/.local/share/focus/volumes/`, `~/.cache/focus/`, and `~/.local/state/focus/`. Use `fs.mkdir` with `{ recursive: true }` so the call is idempotent and safe to run on every invocation.
+
+**What was built:** `ensureXdgDirs()` is exported from `src/config/xdg.ts` and creates all five directories (`focusConfigDir`, `focusConfigDir/profiles`, `focusVolumesDir`, `focusCacheDir`, `focusStateDir`) in parallel via `Promise.all`, each with `{ recursive: true }`. `src/cli.ts` calls it at the very start of `main()`, before any subcommand dispatch. As a side-effect, the `opts: { required }` parameter was removed from `loadProfilesFromDir` in `src/profiles/loader.ts` — the `required: false` silent-return path was dead code once the profiles directory is guaranteed to exist.
+
+---
+
 ## Mount CWD at `/work/<dirname>` for worktree support and per-project harness isolation
 
 **Implemented:** 2026-06-02
