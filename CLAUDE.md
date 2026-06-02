@@ -2,7 +2,7 @@
 
 ## Project
 
-`focus` is a CLI tool that launches an isolated container scoped to the current working directory. See [`docs/design.md`](docs/design.md) for the full design and [`docs/plan.md`](docs/plan.md) for the build plan.
+`focus` is a CLI tool that launches an isolated container scoped to the current working directory. See [`docs/internal/design.md`](docs/internal/design.md) for the full design and [`docs/internal/plan.md`](docs/internal/plan.md) for the build plan.
 
 ## Key Design Decisions
 
