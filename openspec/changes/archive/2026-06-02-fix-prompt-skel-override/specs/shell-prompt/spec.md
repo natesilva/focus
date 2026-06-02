@@ -1,10 +1,4 @@
-# Shell Prompt
-
-## Purpose
-
-Defines the branded bash prompt that the entrypoint script injects into interactive container sessions to identify the focus environment.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Inject branded prompt into interactive bash sessions
 When starting a container for an interactive shell session, the system SHALL inject a styled bash prompt that identifies the focus environment. The prompt SHALL be written to `$ACTUAL_HOME/.bashrc` by the entrypoint script before the user process starts, ensuring the focus PS1 is sourced last and takes effect regardless of skel-generated overrides.
