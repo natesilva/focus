@@ -100,3 +100,21 @@ The word "scope" is better than "sharing level" for this concept.
 **Context:** Every time the tool set or base image changes, `focus` builds a new image and leaves the old one behind. Over time this accumulates significant disk space with no automated cleanup.
 
 **Suggested approach when revisiting:** Add a `focus prune` subcommand that removes `focus-built` images that are no longer referenced by a running or stopped container. Optionally accept `--older-than <duration>` and `--project <path>` filters to narrow the scope. Print a dry-run summary by default and require `--confirm` (or `-y`) to actually delete, matching the UX of `docker image prune`. The implementation should go through the runtime adapter interface so it works with both Docker and Apple Containers backends.
+
+---
+
+## System-wide default `focus.yaml`
+
+**Context:** There is currently no system-wide default config file — only project-level `.focus.yaml`. Users who want consistent tool profiles across all projects have no way to express that without duplicating config into each project, or without the project having a `.focus.yaml` at all.
+
+Open questions: What belongs in a system-wide config vs. a project config? Should system-wide settings be merged with, or overridden by, the project config? Should `focus` create a skeleton config file on first run (like `git` creating `~/.gitconfig`), or only read it if it already exists?
+
+**Suggested approach when revisiting:** Define a system-wide config at `~/.config/focus/focus.yaml` (consistent with the existing XDG config path). Establish a clear merge order: system-wide config provides defaults; project `.focus.yaml` overrides them. Limit the system-wide config to settings that make sense globally — default tool profiles, preferred runtime, resource defaults — and exclude project-specific keys like the base image or mount path. On first run, do not auto-create the file; instead, emit a one-time hint pointing users to the XDG config path so they know it exists without polluting their home directory unconditionally.
+
+---
+
+## Shell prompt: show current Git branch
+
+**Context:** When `focus shell` drops the user into a container, the shell prompt gives no indication of which Git branch is checked out in the mounted project directory. Switching branches on the host while a container shell is open is a common workflow, and the missing branch context is disorienting.
+
+**Suggested approach when revisiting:** Inject a prompt function (or modify the existing PS1 setup in the container's shell rc) that reads the current branch from the mounted working directory. The implementation should call `git -C "$PWD" branch --show-current 2>/dev/null` (or equivalent) rather than parsing `$GIT_DIR` directly, so it works correctly when the user `cd`s within the mounted tree. The branch display should be opt-out (e.g. `shell.gitBranch: false` in config) rather than opt-in, since it is broadly useful. Respect `NO_COLOR` and keep the fallback graceful when the working directory is not a Git repo.
